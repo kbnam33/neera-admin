@@ -1,0 +1,157 @@
+import { Create, useAutocomplete } from "@refinedev/mui";
+import { Box, TextField, Autocomplete, Button, Typography, Paper, IconButton } from "@mui/material";
+import { useForm } from "@refinedev/react-hook-form";
+import { Controller, useFieldArray, useWatch } from "react-hook-form";
+import { supabaseClient } from "../../supabaseClient";
+import { v4 as uuidv4 } from "uuid";
+import DeleteIcon from '@mui/icons-material/Delete';
+import { useState } from "react";
+
+export const ProductCreate = () => {
+  const {
+    saveButtonProps,
+    control,
+    register,
+    formState: { errors },
+  } = useForm();
+
+  const { append, remove } = useFieldArray({
+    control,
+    name: "images",
+  });
+  
+  // Directly watch the 'images' field for rendering
+  const images = useWatch({ control, name: "images" });
+
+  const [isUploading, setIsUploading] = useState(false);
+
+  const { autocompleteProps } = useAutocomplete({
+    resource: "fabrics",
+  });
+  
+  const handleImageUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const fileName = `${uuidv4()}-${file.name}`;
+    
+    try {
+      await supabaseClient.storage
+        .from("product-images")
+        .upload(fileName, file);
+      
+      const { data: { publicUrl } } = supabaseClient.storage
+        .from("product-images")
+        .getPublicUrl(fileName);
+      
+      append(publicUrl);
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      alert("Image upload failed. Please try again.");
+    } finally {
+      setIsUploading(false);
+      event.target.value = "";
+    }
+  };
+
+  return (
+    <Create saveButtonProps={saveButtonProps}>
+      <Box component="form" sx={{ display: "flex", flexDirection: "column" }} autoComplete="off">
+        {/* ... other fields (Name, Description, Price) ... */}
+        <TextField
+          {...register("name", { required: "This field is required" })}
+          error={!!errors.name}
+          helperText={errors.name?.message}
+          margin="normal"
+          fullWidth
+          label="Name"
+          name="name"
+          variant="outlined"
+          autoFocus
+        />
+        <TextField
+          {...register("description")}
+          error={!!errors.description}
+          helperText={errors.description?.message}
+          margin="normal"
+          fullWidth
+          multiline
+          rows={4}
+          label="Description"
+          name="description"
+          variant="outlined"
+        />
+        <TextField
+          {...register("price", {
+            required: "This field is required",
+            valueAsNumber: true,
+          })}
+          error={!!errors.price}
+          helperText={errors.price?.message}
+          margin="normal"
+          fullWidth
+          type="number"
+          label="Price"
+          name="price"
+          variant="outlined"
+        />
+        <Controller
+          control={control}
+          name="fabric_type"
+          rules={{ required: "This field is required" }}
+          render={({ field }) => (
+            <Autocomplete
+              {...autocompleteProps}
+              getOptionLabel={(option) => option.name || ""}
+              isOptionEqualToValue={(option, value) => option.name === value}
+              onChange={(_, value) => field.onChange(value?.name || "")}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Fabric"
+                  margin="normal"
+                  variant="outlined"
+                  error={!!errors.fabric_type}
+                  helperText={errors.fabric_type?.message}
+                />
+              )}
+            />
+          )}
+        />
+        
+        {/* --- Image Uploader Section --- */}
+        <Paper elevation={0} sx={{ p: 2, mt: 2, border: '1px solid #e0e0e0' }}>
+            <Typography variant="h6" gutterBottom>Images</Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+                {(images || []).map((imageUrl, index) => (
+                    <Box key={index} sx={{ position: 'relative', width: 100, height: 100 }}>
+                        <img src={imageUrl} alt={`product-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                        <IconButton
+                          size="small"
+                          onClick={() => remove(index)}
+                          sx={{ position: 'absolute', top: 0, right: 0, backgroundColor: 'rgba(255, 255, 255, 0.7)' }}
+                        >
+                            <DeleteIcon fontSize="small" />
+                        </IconButton>
+                    </Box>
+                ))}
+            </Box>
+            <Button
+              variant="contained"
+              component="label"
+              disabled={isUploading}
+            >
+              {isUploading ? "Uploading..." : "Upload Image"}
+              <input
+                type="file"
+                hidden
+                accept="image/*"
+                onChange={handleImageUpload}
+              />
+            </Button>
+        </Paper>
+      </Box>
+    </Create>
+  );
+};
