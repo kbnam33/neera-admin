@@ -18,15 +18,15 @@ export const ProductList = () => {
       { field: "name", headerName: "Name", minWidth: 200, flex: 1 },
       {
         field: "price",
-        headerName: "Price",
+        headerName: "Price (in ₹)",
         minWidth: 100,
-        type: "number",
-        // This is the updated, safer code
-        valueFormatter: (params) => {
-          if (params.value == null) {
-            return "";
+        renderCell: (params) => {
+          const price = params.value;
+          if (price == null) {
+            return ""; 
           }
-          return `₹ ${Number(params.value).toFixed(2)}`;
+          // Format the number to two decimal places, which is standard for currency
+          return Number(price).toFixed(2);
         },
       },
       { field: "fabric_type", headerName: "Fabric", minWidth: 150 },

@@ -15,14 +15,12 @@ export const ProductCreate = () => {
     formState: { errors },
   } = useForm();
 
-  const { append, remove } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control,
     name: "images",
   });
-  
-  // Directly watch the 'images' field for rendering
-  const images = useWatch({ control, name: "images" });
 
+  const images = useWatch({ control, name: "images" });
   const [isUploading, setIsUploading] = useState(false);
 
   const { autocompleteProps } = useAutocomplete({
@@ -46,6 +44,7 @@ export const ProductCreate = () => {
         .getPublicUrl(fileName);
       
       append(publicUrl);
+
     } catch (error) {
       console.error("Error uploading image:", error);
       alert("Image upload failed. Please try again.");
@@ -58,7 +57,6 @@ export const ProductCreate = () => {
   return (
     <Create saveButtonProps={saveButtonProps}>
       <Box component="form" sx={{ display: "flex", flexDirection: "column" }} autoComplete="off">
-        {/* ... other fields (Name, Description, Price) ... */}
         <TextField
           {...register("name", { required: "This field is required" })}
           error={!!errors.name}
@@ -72,8 +70,6 @@ export const ProductCreate = () => {
         />
         <TextField
           {...register("description")}
-          error={!!errors.description}
-          helperText={errors.description?.message}
           margin="normal"
           fullWidth
           multiline
@@ -120,17 +116,32 @@ export const ProductCreate = () => {
           )}
         />
         
-        {/* --- Image Uploader Section --- */}
+        {/* --- Unified Image Management Section --- */}
         <Paper elevation={0} sx={{ p: 2, mt: 2, border: '1px solid #e0e0e0' }}>
             <Typography variant="h6" gutterBottom>Images</Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                The first image in the list will be the main product image.
+            </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
                 {(images || []).map((imageUrl, index) => (
-                    <Box key={index} sx={{ position: 'relative', width: 100, height: 100 }}>
-                        <img src={imageUrl} alt={`product-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                    <Box key={index} sx={{ 
+                        position: 'relative', 
+                        width: 100, 
+                        height: 100,
+                        border: index === 0 ? '3px solid #1976d2' : 'none', // Highlight the main image
+                        borderRadius: '4px',
+                        overflow: 'hidden',
+                        }}>
+                        {index === 0 && (
+                            <Typography sx={{ position: 'absolute', top: 0, left: 0, background: '#1976d2', color: 'white', padding: '2px 6px', fontSize: '0.7rem', borderBottomRightRadius: '4px' }}>
+                                Main
+                            </Typography>
+                        )}
+                        <img src={imageUrl} alt={`product-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         <IconButton
                           size="small"
                           onClick={() => remove(index)}
-                          sx={{ position: 'absolute', top: 0, right: 0, backgroundColor: 'rgba(255, 255, 255, 0.7)' }}
+                          sx={{ position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(255, 255, 255, 0.8)' }}
                         >
                             <DeleteIcon fontSize="small" />
                         </IconButton>
