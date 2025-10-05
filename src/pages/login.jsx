@@ -1,9 +1,5 @@
 import { useLogin } from "@refinedev/core";
-import Box from "@mui/material/Box";
-import Container from "@mui/material/Container";
-import Typography from "@mui/material/Typography";
-import TextField from "@mui/material/TextField";
-import Button from "@mui/material/Button";
+import { Box, Container, Typography, TextField, Button, Paper } from "@mui/material";
 
 export const Login = () => {
   const { mutate: login } = useLogin();
@@ -19,49 +15,63 @@ export const Login = () => {
           minHeight: "100vh",
         }}
       >
-        <Typography component="h1" variant="h5">
-          Neera Admin Login
-        </Typography>
-        <Box
-          component="form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const data = new FormData(e.currentTarget);
-            const { email, password } = Object.fromEntries(data.entries());
-            login({ email, password });
+        <Paper
+          elevation={3}
+          sx={{
+            p: 4,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            width: '100%'
           }}
-          noValidate
-          sx={{ mt: 1 }}
         >
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label="Email Address"
-            name="email"
-            autoComplete="email"
-            autoFocus
-          />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label="Password"
-            type="password"
-            id="password"
-            autoComplete="current-password"
-          />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
+          <Typography component="h1" variant="h5" sx={{ mb: 1 }}>
+            Neera Admin
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Sign in to manage your store
+          </Typography>
+          <Box
+            component="form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const data = new FormData(e.currentTarget);
+              const { email, password } = Object.fromEntries(data.entries());
+              login({ email, password });
+            }}
+            noValidate
+            sx={{ width: '100%' }}
           >
-            Sign In
-          </Button>
-        </Box>
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              id="email"
+              label="Email Address"
+              name="email"
+              autoComplete="email"
+              autoFocus
+            />
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              name="password"
+              label="Password"
+              type="password"
+              id="password"
+              autoComplete="current-password"
+            />
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              sx={{ mt: 3, mb: 2, py: 1.5 }}
+            >
+              Sign In
+            </Button>
+          </Box>
+        </Paper>
       </Box>
     </Container>
   );
