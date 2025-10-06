@@ -50,6 +50,8 @@ export const ProductCreate = () => {
     <>
       <Create 
           saveButtonProps={saveButtonProps}
+          title={<Typography variant="h5">Create New Product</Typography>}
+          breadcrumb={null}
       >
         <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Paper sx={{ p: 3 }}>

@@ -26,8 +26,12 @@ import { ProductEdit } from "./pages/products/edit";
 import { FabricList } from "./pages/fabrics/list";
 import { FabricCreate } from "./pages/fabrics/create";
 import { FabricEdit } from "./pages/fabrics/edit";
+import { OrderList } from "./pages/orders/list";
+import { OrderShow } from "./pages/orders/show";
+import { CustomerList } from "./pages/customers/list";
+import { CustomerShow } from "./pages/customers/show";
 // Modern icons from Phosphor
-import { TShirt, Rows } from "phosphor-react";
+import { TShirt, Rows, ShoppingCart, Users } from "phosphor-react";
 
 function App() {
   return (
@@ -58,6 +62,18 @@ function App() {
                     create: "/fabrics/create",
                     edit: "/fabrics/edit/:id",
                     meta: { canDelete: true, icon: <Rows /> },
+                  },
+                   {
+                    name: "orders",
+                    list: "/orders",
+                    show: "/orders/show/:id",
+                    meta: { canDelete: false, icon: <ShoppingCart /> },
+                  },
+                  {
+                    name: "customers",
+                    list: "/customers",
+                    show: "/customers/show/:id",
+                    meta: { canDelete: false, icon: <Users /> },
                   },
                 ]}
                 options={{
@@ -91,6 +107,14 @@ function App() {
                       <Route path="create" element={<FabricCreate />} />
                       <Route path="edit/:id" element={<FabricEdit />} />
                     </Route>
+                     <Route path="/orders">
+                      <Route index element={<OrderList />} />
+                      <Route path="show/:id" element={<OrderShow />} />
+                    </Route>
+                    <Route path="/customers">
+                      <Route index element={<CustomerList />} />
+                      <Route path="show/:id" element={<CustomerShow />} />
+                    </Route>
                   </Route>
                   <Route
                     element={
@@ -115,4 +139,3 @@ function App() {
 }
 
 export default App;
-

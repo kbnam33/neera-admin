@@ -10,7 +10,16 @@ import { Add } from '@mui/icons-material';
 
 
 export const ProductList = () => {
-  const { dataGridProps, deleteButtonProps } = useDataGrid();
+  const { dataGridProps } = useDataGrid({
+    sorters: {
+      initial: [
+        {
+          field: "created_at",
+          order: "desc",
+        },
+      ],
+    },
+  });
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [currentRowId, setCurrentRowId] = useState(null);
@@ -70,12 +79,6 @@ export const ProductList = () => {
               aria-controls="long-menu"
               aria-haspopup="true"
               onClick={(e) => handleClick(e, id)}
-              sx={{
-                borderRadius: '50%',
-                '&:hover': {
-                  backgroundColor: 'action.hover'
-                }
-              }}
             >
               <MoreVert />
             </IconButton>
@@ -97,8 +100,6 @@ export const ProductList = () => {
               </MenuItem>
               <MenuItem
                 onClick={() => {
-                  // This allows the DeleteButton's confirmation to work
-                  // while keeping the item within the menu structure
                   document.getElementById(`delete-button-${id}`)?.click();
                   handleClose();
                 }}
@@ -110,7 +111,6 @@ export const ProductList = () => {
                 </Stack>
               </MenuItem>
             </Menu>
-             {/* Hidden DeleteButton to handle confirmation logic */}
              <Box sx={{display: 'none'}}>
                 <DeleteButton
                     recordItemId={id}
@@ -121,12 +121,11 @@ export const ProductList = () => {
         ),
       },
     ],
-    [navigate, anchorEl, open, currentRowId, deleteButtonProps]
+    [navigate, anchorEl, open, currentRowId]
   );
 
   return (
     <List
-        title={<Typography variant="h5">Products</Typography>}
         headerButtons={
           <CreateButton
             variant="contained"
@@ -148,7 +147,7 @@ export const ProductList = () => {
               onRowClick={(params) => navigate(`/products/edit/${params.id}`)}
               sx={{
                 '& .MuiDataGrid-cell': {
-                  py: '22px' // Increased vertical padding
+                  py: '22px' 
                 }
               }}
             />
@@ -156,4 +155,3 @@ export const ProductList = () => {
     </List>
   );
 };
-

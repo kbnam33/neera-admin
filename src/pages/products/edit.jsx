@@ -66,6 +66,8 @@ export const ProductEdit = () => {
     <>
       <Edit 
           saveButtonProps={saveButtonProps}
+          title={<Typography variant="h5">Edit Product</Typography>}
+          breadcrumb={null}
           headerButtons={
             <Box>
               <ListButton size="small" sx={{ mr: 1 }} />

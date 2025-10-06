@@ -61,6 +61,15 @@ export const theme = createTheme({
     },
   },
   components: {
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          "&:hover": {
+            backgroundColor: "transparent",
+          },
+        },
+      },
+    },
     MuiButton: {
       styleOverrides: {
         root: ({ ownerState }) => ({
@@ -148,4 +157,3 @@ export const theme = createTheme({
     }
   },
 });
-

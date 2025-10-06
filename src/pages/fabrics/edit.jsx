@@ -1,5 +1,5 @@
 import { Edit } from "@refinedev/mui";
-import { Box, TextField } from "@mui/material";
+import { Box, TextField, Typography } from "@mui/material";
 import { useForm } from "@refinedev/react-hook-form";
 
 export const FabricEdit = () => {
@@ -10,7 +10,11 @@ export const FabricEdit = () => {
   } = useForm();
 
   return (
-    <Edit saveButtonProps={saveButtonProps}>
+    <Edit 
+      saveButtonProps={saveButtonProps}
+      title={<Typography variant="h5">Edit Fabric</Typography>}
+      breadcrumb={null}
+    >
       <Box component="form" sx={{ display: "flex", flexDirection: "column" }} autoComplete="off">
         <TextField
           {...register("name", {

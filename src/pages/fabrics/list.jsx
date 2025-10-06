@@ -8,7 +8,16 @@ import { Paper, Typography, Menu, MenuItem, IconButton } from "@mui/material";
 import { MoreVert, Edit } from "@mui/icons-material";
 
 export const FabricList = () => {
-  const { dataGridProps } = useDataGrid();
+  const { dataGridProps } = useDataGrid({
+    sorters: {
+      initial: [
+        {
+          field: "created_at",
+          order: "desc",
+        },
+      ],
+    },
+  });
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [currentRowId, setCurrentRowId] = useState(null);
@@ -77,6 +86,7 @@ export const FabricList = () => {
 
   return (
     <List
+      title=""
       headerButtons={<CreateButton>+ Add Fabric</CreateButton>}
     >
        <Paper sx={{
