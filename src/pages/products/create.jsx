@@ -2,7 +2,7 @@ import { Create, useAutocomplete } from "@refinedev/mui";
 import { Box, TextField, Autocomplete, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade } from "@mui/material";
 import { useForm } from "@refinedev/react-hook-form";
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
-import { supabaseClient } from "../../supabaseClient";
+import { supabaseClient } from "../../supabase";
 import { v4 as uuidv4 } from "uuid";
 import DeleteIcon from '@mui/icons-material/Delete';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';

@@ -15,10 +15,12 @@ import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import GlobalStyles from "@mui/material/GlobalStyles";
 import { BrowserRouter, Route, Routes, Outlet } from "react-router-dom";
-import { supabaseClient } from "./supabaseClient";
+
+// Import both clients from our new consolidated file
+import { supabaseClient, supabaseAdminClient } from "./supabase"; 
 import { authProvider } from "./authProvider";
-import { theme } from "./theme"; 
-import { Layout } from "./components/layout"; 
+import { theme } from "./theme";
+import { Layout } from "./components/layout";
 import { Login } from "./pages/login";
 import { ProductList } from "./pages/products/list";
 import { ProductCreate } from "./pages/products/create";
@@ -30,8 +32,11 @@ import { OrderList } from "./pages/orders/list";
 import { OrderShow } from "./pages/orders/show";
 import { CustomerList } from "./pages/customers/list";
 import { CustomerShow } from "./pages/customers/show";
-// Modern icons from Phosphor
 import { TShirt, Rows, ShoppingCart, Users } from "phosphor-react";
+
+// Initialize providers with the correct clients
+const dataProviderInstance = dataProvider(supabaseAdminClient);
+const liveProviderInstance = liveProvider(supabaseAdminClient);
 
 function App() {
   return (
@@ -43,8 +48,8 @@ function App() {
           <RefineSnackbarProvider>
             <DevtoolsProvider>
               <Refine
-                dataProvider={dataProvider(supabaseClient)}
-                liveProvider={liveProvider(supabaseClient)}
+                dataProvider={dataProviderInstance}
+                liveProvider={liveProviderInstance}
                 authProvider={authProvider}
                 notificationProvider={notificationProvider}
                 routerProvider={routerBindings}
@@ -59,8 +64,8 @@ function App() {
                   {
                     name: "fabrics",
                     list: "/fabrics",
-                    create: "/fabrics/create",
-                    edit: "/fabrics/edit/:id",
+                    create: "/products/create",
+                    edit: "/products/edit/:id",
                     meta: { canDelete: true, icon: <Rows /> },
                   },
                    {
