@@ -3,7 +3,7 @@ import { Box } from "@mui/material";
 import { Header } from "./header";
 import { Sider } from "./sider";
 
-const SIDER_WIDTH = 220; // Adjusted sidebar width
+const SIDER_WIDTH = 220;
 
 export const Layout = ({ children }) => {
   return (
@@ -22,7 +22,7 @@ export const Layout = ({ children }) => {
         <Box
           component="main"
           sx={{
-            p: 4,
+            p: "40px",
             flexGrow: 1,
             backgroundColor: 'background.default',
           }}

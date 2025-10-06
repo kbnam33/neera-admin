@@ -1,41 +1,90 @@
 import {
   DataGrid,
-  GridActionsCellItem,
-  GridToolbar,
 } from "@mui/x-data-grid";
-import { useDataGrid, List } from "@refinedev/mui";
-import { Edit } from "@mui/icons-material";
-import { useMemo } from "react";
+import { useDataGrid, List, CreateButton } from "@refinedev/mui";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Paper, Typography, Menu, MenuItem, IconButton } from "@mui/material";
+import { MoreVert, Edit } from "@mui/icons-material";
 
 export const FabricList = () => {
   const { dataGridProps } = useDataGrid();
   const navigate = useNavigate();
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [currentRowId, setCurrentRowId] = useState(null);
+  const open = Boolean(anchorEl);
+
+  const handleClick = (event, id) => {
+    setAnchorEl(event.currentTarget);
+    setCurrentRowId(id);
+  };
+  
+  const handleClose = () => {
+    setAnchorEl(null);
+    setCurrentRowId(null);
+  };
 
   const columns = useMemo(
     () => [
       { field: "id", headerName: "ID", minWidth: 50 },
-      { field: "name", headerName: "Fabric Name", minWidth: 200, flex: 1 },
+      { 
+        field: "name", 
+        headerName: "Fabric Name", 
+        minWidth: 200, 
+        flex: 1,
+        renderCell: (params) => (
+          <Typography variant="body1" fontWeight={500}>{params.value}</Typography>
+        )
+      },
       {
         field: "actions",
         headerName: "Actions",
         type: "actions",
-        getActions: ({ id }) => [
-          <GridActionsCellItem
-            key="edit"
-            icon={<Edit />}
-            label="Edit"
-            onClick={() => navigate(`/fabrics/edit/${id}`)}
-          />,
-        ],
+        width: 80,
+        align: "center",
+        headerAlign: "center",
+        renderCell: ({ id }) => (
+          <div>
+            <IconButton
+              aria-label="more"
+              aria-controls="long-menu"
+              aria-haspopup="true"
+              onClick={(e) => handleClick(e, id)}
+            >
+              <MoreVert />
+            </IconButton>
+            <Menu
+              anchorEl={anchorEl}
+              open={open && currentRowId === id}
+              onClose={handleClose}
+            >
+              <MenuItem
+                onClick={() => {
+                  navigate(`/fabrics/edit/${id}`);
+                  handleClose();
+                }}
+              >
+                <Edit sx={{ mr: 1, fontSize: '1rem' }} />
+                Edit
+              </MenuItem>
+            </Menu>
+          </div>
+        ),
       },
     ],
-    [navigate]
+    [navigate, anchorEl, open, currentRowId]
   );
 
   return (
-    <List>
-      <DataGrid {...dataGridProps} columns={columns} autoHeight />
+    <List
+      headerButtons={<CreateButton>+ Add Fabric</CreateButton>}
+    >
+       <Paper sx={{
+            height: '75vh',
+            width: '100%',
+        }}>
+            <DataGrid {...dataGridProps} columns={columns} autoHeight />
+        </Paper>
     </List>
   );
 };

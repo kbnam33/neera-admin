@@ -5,7 +5,7 @@ import { Controller, useFieldArray, useWatch } from "react-hook-form";
 import { supabaseClient } from "../../supabaseClient";
 import { v4 as uuidv4 } from "uuid";
 import DeleteIcon from '@mui/icons-material/Delete';
-import { ZoomIn } from "phosphor-react";
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import { useState } from "react";
 
 export const ProductCreate = () => {
@@ -49,7 +49,6 @@ export const ProductCreate = () => {
   return (
     <>
       <Create 
-          title={<Typography variant="h5">Create New Product</Typography>}
           saveButtonProps={saveButtonProps}
       >
         <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -97,7 +96,7 @@ export const ProductCreate = () => {
                           '&:hover .preview-overlay': { opacity: 1 }
                       })}>
                           <Box className="preview-overlay" onClick={() => handleOpenPreview(imageUrl)} sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', opacity: 0, transition: 'opacity 0.2s', cursor: 'pointer' }}>
-                            <ZoomIn size={24} />
+                            <ZoomInIcon />
                           </Box>
                           {index === 0 && ( <Typography sx={{ position: 'absolute', top: 0, left: 0, background: 'primary.main', color: 'white', padding: '2px 6px', fontSize: '0.7rem', borderBottomRightRadius: '4px' }}>Main</Typography> )}
                           <img src={imageUrl} alt={`product-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -118,8 +117,15 @@ export const ProductCreate = () => {
         open={!!previewImage}
         onClose={handleClosePreview}
         closeAfterTransition
-        BackdropComponent={Backdrop}
-        BackdropProps={{ timeout: 500 }}
+        slots={{ backdrop: Backdrop }}
+        slotProps={{
+          backdrop: {
+            timeout: 500,
+             sx: {
+              backdropFilter: 'blur(4px)',
+            }
+          },
+        }}
       >
         <Fade in={!!previewImage}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>

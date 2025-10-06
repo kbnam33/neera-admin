@@ -4,7 +4,7 @@ import { useForm } from "@refinedev/react-hook-form";
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
 import { supabaseClient } from "../../supabaseClient";
 import { v4 as uuidv4 } from "uuid";
-import { ZoomIn } from "phosphor-react";
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
@@ -65,17 +65,13 @@ export const ProductEdit = () => {
   return (
     <>
       <Edit 
-          title={
-            <Box display="flex" alignItems="center" gap={2}>
-              <Typography variant="h5">Edit Product</Typography>
-              <Box>
-                <ListButton size="small" sx={{ mr: 1 }} />
-                <RefreshButton size="small" />
-              </Box>
+          saveButtonProps={saveButtonProps}
+          headerButtons={
+            <Box>
+              <ListButton size="small" sx={{ mr: 1 }} />
+              <RefreshButton size="small" />
             </Box>
           }
-          saveButtonProps={saveButtonProps}
-          headerButtons={<></>} // Clear default header buttons
       >
         <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Paper sx={{ p: 3 }}>
@@ -129,11 +125,23 @@ export const ProductEdit = () => {
                                 position: 'relative', width: 100, height: 100,
                                 border: index === 0 ? `3px solid ${theme.palette.primary.main}` : `1px solid ${theme.palette.grey[200]}`,
                                 borderRadius: '8px', overflow: 'hidden', cursor: 'grab',
-                                '&:hover .preview-overlay': { opacity: 1 }
                               })}
                             >
-                              <Box className="preview-overlay" onClick={() => handleOpenPreview(images?.[index])} sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', opacity: 0, transition: 'opacity 0.2s', cursor: 'pointer' }}>
-                                <ZoomIn size={24} />
+                              <Box 
+                                className="preview-overlay" 
+                                onClick={() => handleOpenPreview(images?.[index])} 
+                                sx={{ 
+                                  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
+                                  backgroundColor: 'rgba(0,0,0,0.3)', 
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                  color: 'white', opacity: 1, transition: 'background-color 0.2s', 
+                                  cursor: 'pointer',
+                                  '&:hover': {
+                                    backgroundColor: 'rgba(0,0,0,0.5)',
+                                  }
+                                }}
+                              >
+                                <ZoomInIcon />
                               </Box>
                               {index === 0 && ( <Typography sx={{ position: 'absolute', top: 0, left: 0, background: 'primary.main', color: 'white', padding: '2px 6px', fontSize: '0.7rem', borderBottomRightRadius: '4px', zIndex: 1 }}>Main</Typography> )}
                               <img src={images?.[index]} alt={`product-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -160,8 +168,15 @@ export const ProductEdit = () => {
         open={!!previewImage}
         onClose={handleClosePreview}
         closeAfterTransition
-        BackdropComponent={Backdrop}
-        BackdropProps={{ timeout: 500 }}
+        slots={{ backdrop: Backdrop }}
+        slotProps={{
+          backdrop: {
+            timeout: 500,
+            sx: {
+              backdropFilter: 'blur(4px)',
+            }
+          },
+        }}
       >
         <Fade in={!!previewImage}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>

@@ -1,4 +1,4 @@
-import { useLink, useLogout, useMenu } from "@refinedev/core";
+import { useLink, useMenu } from "@refinedev/core";
 import {
   Box,
   Drawer,
@@ -8,11 +8,9 @@ import {
   ListItemText,
   Typography,
 } from "@mui/material";
-import { List as ListIcon, SignOut } from "phosphor-react";
 
 export const Sider = ({ drawerWidth = 220 }) => {
   const { menuItems, selectedKey } = useMenu();
-  const { mutate: logout } = useLogout();
   const Link = useLink();
 
   return (
@@ -22,12 +20,11 @@ export const Sider = ({ drawerWidth = 220 }) => {
         "& .MuiDrawer-paper": {
           width: drawerWidth,
           boxSizing: "border-box",
-          boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.05)",
         },
       }}
     >
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '64px' }}>
-        <Typography variant="h5" fontWeight={700} sx={{ fontFamily: "'Playfair Display', serif"}}>
+      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '65px' }}>
+        <Typography variant="h5" fontWeight={700} sx={{ fontFamily: "'Playfair Display', serif'"}}>
           Neera Admin
         </Typography>
       </Box>
@@ -44,42 +41,45 @@ export const Sider = ({ drawerWidth = 220 }) => {
                   borderRadius: '8px',
                   py: 1.25,
                   color: 'text.secondary',
+                  position: 'relative',
                   '& .MuiListItemIcon-root': {
+                    minWidth: '40px',
                     color: 'text.secondary',
                   },
+                  '&:before': {
+                    content: '""',
+                    position: 'absolute',
+                    left: 0,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    height: selectedKey === route ? '20px' : '0px',
+                    width: '3px',
+                    backgroundColor: 'primary.main',
+                    borderRadius: '0 3px 3px 0',
+                    transition: 'height 0.2s ease-in-out',
+                  },
                   '&.Mui-selected': {
-                      backgroundColor: 'primary.main',
-                      color: 'primary.contrastText',
+                      backgroundColor: 'action.hover',
+                      color: 'text.primary',
                       '& .MuiListItemIcon-root': {
-                          color: 'primary.contrastText',
+                          color: 'text.primary',
                       },
                       '& .MuiListItemText-primary': {
                         fontWeight: 600,
                       },
                       '&:hover': {
-                        backgroundColor: '#2D3748',
+                        backgroundColor: 'action.hover',
                       }
                   },
               }}
             >
-              <ListItemIcon sx={{ minWidth: '40px' }}>{icon || <ListIcon />}</ListItemIcon>
+              <ListItemIcon>{icon}</ListItemIcon>
               <ListItemText 
                 primary={label || name} 
               />
             </ListItemButton>
           ))}
         </List>
-      </Box>
-      <Box sx={{ p: 2 }}>
-        <ListItemButton
-            onClick={() => logout()}
-            sx={{ borderRadius: '8px' }}
-          >
-            <ListItemIcon sx={{ minWidth: '40px' }}>
-              <SignOut />
-            </ListItemIcon>
-            <ListItemText primary="Logout" />
-        </ListItemButton>
       </Box>
     </Drawer>
   );

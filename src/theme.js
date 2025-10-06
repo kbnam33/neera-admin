@@ -1,113 +1,151 @@
 import { createTheme } from "@mui/material/styles";
 
-// A sophisticated, neutral color palette
+// A modern, sophisticated, "warm cream" inspired palette
 const colors = {
   primary: {
-    main: "#1A202C", // A deep charcoal for primary elements
+    main: "#0F1724", // Deep charcoal for CTAs
     contrastText: "#FFFFFF",
   },
-  secondary: {
-    main: "#F9FAFB", // A very light, neutral grey for secondary backgrounds
-  },
-  text: {
-    primary: "#1A202C",
-    secondary: "#6B7280", // A standard neutral grey for secondary text
+  accent: {
+    main: "#E16A2B", // Terracotta for highlights
   },
   background: {
-    default: "#F9FAFB",
-    paper: "#FFFFFF",
+    default: "#FBF8F6", // Warm cream page background
+    paper: "#FFFFFF",   // Pure white for cards/surfaces
   },
-  grey: {
-    100: "#F3F4F6",
-    200: "#E5E7EB",
-    300: "#D1D5DB",
+  text: {
+    primary: "#0F1724",   // Deep charcoal for primary text
+    secondary: "#6B7280", // Cool gray for muted text
   },
+  divider: "#F1EEEB", // Warm-tinted gray for hairlines/borders
+  action: {
+    hover: "rgba(0, 0, 0, 0.04)",
+  }
 };
 
 export const theme = createTheme({
   palette: {
     primary: colors.primary,
-    secondary: colors.secondary,
-    text: colors.text,
     background: colors.background,
-    grey: colors.grey,
+    text: colors.text,
+    divider: colors.divider,
+    action: colors.action,
+    // Add custom accent color to the palette
+    accent: {
+      main: colors.accent.main,
+    },
   },
   typography: {
     fontFamily: "'Inter', sans-serif",
     h5: {
-      fontWeight: 700,
+      fontWeight: 600,
+      fontSize: "20px",
       color: colors.text.primary,
     },
     h6: {
       fontWeight: 600,
+      fontSize: "18px",
       color: colors.text.primary,
     },
     body1: {
+      fontSize: "15px",
       color: colors.text.primary,
     },
     body2: {
+      fontSize: "14px",
       color: colors.text.secondary,
     },
     button: {
-      fontWeight: 600,
+      fontWeight: 500,
+      fontSize: "14px",
     },
   },
   components: {
     MuiButton: {
       styleOverrides: {
-        root: {
+        root: ({ ownerState }) => ({
           textTransform: "none",
-          borderRadius: "8px",
-          boxShadow: "none",
+          borderRadius: ownerState.variant === 'contained' ? '999px' : '8px', // Pill for primary
+          boxShadow: ownerState.variant === 'contained' ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+          transition: "all 200ms ease-in-out",
           "&:hover": {
-            boxShadow: "none",
+            boxShadow: ownerState.variant === 'contained' ? "0 4px 12px rgba(0,0,0,0.1)" : "none",
+            transform: "translateY(-1px)",
           },
-        },
-        containedPrimary: {
-          backgroundColor: colors.primary.main,
-          "&:hover": {
-            backgroundColor: "#2D3748",
-          },
-        },
+        }),
       },
     },
     MuiPaper: {
       styleOverrides: {
         root: {
-          boxShadow: "0px 1px 3px rgba(0, 0, 0, 0.05), 0px 1px 2px rgba(0, 0, 0, 0.06)",
-          borderRadius: "12px",
+          backgroundColor: colors.background.paper,
+          boxShadow: "0 4px 24px rgba(0,0,0,0.04)",
+          border: `1px solid ${colors.divider}`,
+          borderRadius: "16px",
         },
       },
     },
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: colors.background.paper,
-          borderBottom: `1px solid ${colors.grey[200]}`,
+          backgroundColor: 'rgba(251, 248, 246, 0.8)', // Semi-transparent warm cream
+          backdropFilter: 'blur(8px)',
+          boxShadow: "none",
+          borderBottom: `1px solid ${colors.divider}`,
         },
       },
     },
     MuiDrawer: {
       styleOverrides: {
         paper: {
-          backgroundColor: colors.background.paper,
-          borderRight: "none",
+          backgroundColor: colors.background.default,
+          borderRight: `1px solid ${colors.divider}`,
         },
       },
     },
     MuiDataGrid: {
         styleOverrides: {
+            root: {
+                border: 'none',
+            },
+            cell: {
+                borderBottom: `1px solid ${colors.divider}`,
+                display: 'flex',
+                alignItems: 'center', // Vertical centering for cell content
+            },
+            columnHeader: {
+                 // This ensures vertical centering for headers
+                display: 'flex',
+                alignItems: 'center',
+            },
             columnHeaderTitle: {
-                fontWeight: 600,
+                fontWeight: 500,
                 color: colors.text.secondary,
-                textTransform: 'uppercase',
-                fontSize: '0.75rem',
+                fontSize: '13px',
+                letterSpacing: '0.5px',
             },
             columnHeaders: {
-                backgroundColor: colors.background.default,
-                borderBottom: `1px solid ${colors.grey[200]}`,
-            }
+                borderBottom: `1px solid ${colors.divider}`,
+            },
+            row: {
+                transition: 'background-color 150ms ease-in-out, transform 150ms ease-in-out, box-shadow 150ms ease-in-out',
+                '&:hover': {
+                    backgroundColor: colors.background.default,
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                },
+            },
         }
+    },
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          borderRadius: '12px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+          border: `1px solid ${colors.divider}`,
+        }
+      }
     }
   },
 });
+
