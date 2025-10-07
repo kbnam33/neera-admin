@@ -1,40 +1,40 @@
 import { createTheme } from "@mui/material/styles";
 
-// A new, sophisticated theme inspired by natural, earthy greens
+// A sophisticated neutral theme with a warm cream background
 const colors = {
   primary: {
-    main: "#344E41",       // A deep, muted green for primary actions
-    light: "#3A5A40",      // A slightly lighter, more vibrant green for hover
+    main: "#2D3748",       // Charcoal for primary actions
+    light: "#4A5568",      // A slightly lighter charcoal for hover
     contrastText: "#FFFFFF",
   },
   secondary: {
-    main: "#588157",       // A softer, earthy green for secondary button borders/text
-    light: "rgba(88, 129, 87, 0.05)", // A very light tint for hover backgrounds
-    contrastText: "#344E41",
+    main: "#718096",       // Medium-light grey for secondary button borders/text
+    light: "#EDF2F7",      // Very light grey for hover backgrounds
+    contrastText: "#2D3748",
   },
   text: {
     primary: "#1A202C",
-    secondary: "#4A5568",
+    secondary: "#718096",
   },
   background: {
-    default: "#FBF8F6",
+    default: "#FBF8F6",    // Warm cream background
     paper: "#FFFFFF",
   },
   divider: "#E2E8F0",
   action: {
-    hover: "rgba(52, 78, 65, 0.04)",
+    hover: "rgba(237, 242, 247, 0.8)", // Slightly more opaque hover for list items etc.
   },
   success: {
-    main: '#2F855A',
+    main: '#38A169',
     contrastText: '#FFFFFF',
   },
   error: {
-    main: '#C53030',
+    main: '#E53E3E',
     contrastText: '#FFFFFF',
   },
   destructive: {
-    main: '#C53030',
-    light: 'rgba(197, 48, 48, 0.08)',
+    main: '#E53E3E',
+    light: 'rgba(229, 62, 62, 0.08)',
   }
 };
 
@@ -56,41 +56,61 @@ export const theme = createTheme({
     h6: { fontWeight: 600, fontSize: "18px", color: colors.text.primary },
     body1: { fontSize: "15px", color: colors.text.primary },
     body2: { fontSize: "14px", color: colors.text.secondary },
-    button: { fontWeight: 500, fontSize: "14px", letterSpacing: "0.2px" },
+    button: { fontWeight: 500, fontSize: "14px", letterSpacing: "0.2px", padding: '8px 20px' },
   },
   components: {
     MuiButton: {
       styleOverrides: {
         root: {
           textTransform: "none",
-          borderRadius: "10px",
-          transition: "all 200ms ease-in-out",
+          borderRadius: "8px",
           boxShadow: 'none',
+          transition: "transform 250ms cubic-bezier(0.4, 0, 0.2, 1), background-color 250ms cubic-bezier(0.4, 0, 0.2, 1), border-color 250ms cubic-bezier(0.4, 0, 0.2, 1), color 250ms cubic-bezier(0.4, 0, 0.2, 1)",
+          '&:hover': {
+            transform: "translateY(-2px)",
+            boxShadow: 'none',
+          },
+          '&:active': {
+            transform: "translateY(0)",
+          }
         },
-        // Primary Button: Dark green, tactile, with an inset shadow
+        // Outlined primary buttons (Save)
         containedPrimary: {
-            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.3)',
-            '&:hover': {
-                transform: "translateY(-2px)",
-                backgroundColor: colors.primary.light,
-                boxShadow: '0 10px 20px rgba(52, 78, 65, 0.2)',
-            },
-            '&:active': {
-                transform: "translateY(0)",
-                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)',
-            }
+           backgroundColor: 'transparent',
+           color: colors.primary.main,
+           border: `1.5px solid ${colors.primary.main}`,
+           '&:hover': {
+             backgroundColor: colors.secondary.light,
+             borderColor: colors.primary.light,
+             color: colors.primary.light,
+           }
         },
-        // Secondary Button: Outlined with green tones, fills on hover
-        outlined: {
-            '&.MuiButton-outlinedSecondary': {
-                borderColor: colors.secondary.main,
-                color: colors.secondary.main,
-                '&:hover': {
-                    backgroundColor: colors.secondary.light,
-                    borderColor: colors.primary.main,
-                },
-            }
+        // Contained primary buttons (Login)
+        contained: {
+          backgroundColor: colors.primary.main,
+          '&:hover': {
+             backgroundColor: colors.primary.light,
+          }
         },
+        // Outlined secondary buttons (Upload, Add)
+        outlinedSecondary: {
+            backgroundColor: colors.primary.main,
+            borderColor: colors.primary.main,
+            color: colors.primary.contrastText,
+           '&:hover': {
+              backgroundColor: colors.primary.light,
+              borderColor: colors.primary.light,
+           },
+        },
+        // Delete Button
+        outlinedError: {
+           borderColor: colors.destructive.main,
+           color: colors.destructive.main,
+           '&:hover': {
+             backgroundColor: colors.destructive.light,
+             borderColor: colors.destructive.main,
+           }
+        }
       },
     },
     MuiPaper: {
@@ -149,6 +169,8 @@ export const theme = createTheme({
             row: {
                 transition: 'background-color 150ms ease-in-out, transform 150ms ease-in-out, box-shadow 150ms ease-in-out',
                 '&:hover': {
+                    transform: 'translateY(-1px)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
                     backgroundColor: colors.background.default,
                 },
             },
@@ -168,12 +190,12 @@ export const theme = createTheme({
         root: {
           borderRadius: '10px',
           border: '1px solid',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+          boxShadow: 'none',
         },
         standardError: {
           backgroundColor: colors.background.paper,
           color: colors.error.main,
-          borderColor: colors.error.main,
+          borderColor: 'rgba(229, 62, 62, 0.5)',
           '& .MuiAlert-icon': {
             color: colors.error.main,
           }
@@ -181,7 +203,7 @@ export const theme = createTheme({
         standardSuccess: {
           backgroundColor: colors.background.paper,
           color: colors.success.main,
-          borderColor: colors.success.main,
+          borderColor: 'rgba(56, 161, 105, 0.5)',
           '& .MuiAlert-icon': {
             color: colors.success.main,
           }
@@ -190,3 +212,4 @@ export const theme = createTheme({
     }
   },
 });
+
