@@ -2,7 +2,7 @@ import { useDataGrid, List } from "@refinedev/mui";
 import { DataGrid } from "@mui/x-data-grid";
 import { Chip, Paper, Typography, Box, TextField, Select, MenuItem, FormControl, InputLabel, IconButton, Menu, Stack } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useUpdate } from "@refinedev/core";
 import { MoreVert, Visibility } from "@mui/icons-material";
 
@@ -65,8 +65,7 @@ const StatusSelect = ({ orderId, currentStatus }) => {
 
 
 export const OrderList = () => {
-  const { dataGridProps, search, filters } = useDataGrid({
-    onSearch: (values) => [{ field: "shipping_address->>name", operator: "contains", value: values.q }],
+  const { dataGridProps, setFilters } = useDataGrid({
     sorters: {
       initial: [
         {
@@ -76,6 +75,28 @@ export const OrderList = () => {
       ],
     },
   });
+
+  const [customerName, setCustomerName] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  useEffect(() => {
+    const filters = [];
+    if (customerName) {
+      filters.push({
+        field: "shipping_address->>name",
+        operator: "contains",
+        value: customerName,
+      });
+    }
+    if (statusFilter !== "all") {
+      filters.push({
+        field: "order_status",
+        operator: "eq",
+        value: statusFilter,
+      });
+    }
+    setFilters(filters);
+  }, [customerName, statusFilter, setFilters]);
   
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -130,9 +151,10 @@ export const OrderList = () => {
         field: "actions",
         headerName: "Actions",
         type: "actions",
-        width: 80,
+        minWidth: 100,
         align: "center",
         headerAlign: "center",
+        sortable: false,
         renderCell: ({ id }) => (
           <Box onClick={(e) => e.stopPropagation()}>
             <IconButton onClick={(e) => handleClick(e, id)}>
@@ -163,21 +185,15 @@ export const OrderList = () => {
             variant="outlined"
             size="small"
             placeholder="Search by customer name..."
-            onChange={(e) => search({ q: e.target.value })}
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
             sx={{ flexGrow: 1, maxWidth: '340px' }}
         />
         <FormControl variant="outlined" size="small" sx={{ minWidth: 180 }}>
             <InputLabel>Status</InputLabel>
             <Select
-                value={filters.find(f => f.field === 'order_status')?.value || 'all'}
-                onChange={(e) => {
-                    const value = e.target.value;
-                    const statusFilter = filters.filter(f => f.field !== 'order_status');
-                    if (value !== 'all') {
-                        statusFilter.push({ field: 'order_status', operator: 'eq', value });
-                    }
-                    dataGridProps.onFilterModelChange({ items: statusFilter });
-                }}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
                 label="Status"
             >
                 <MenuItem value="all">All Statuses</MenuItem>

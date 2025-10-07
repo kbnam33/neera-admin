@@ -65,7 +65,7 @@ export const ProductEdit = () => {
   return (
     <>
       <Edit 
-          saveButtonProps={saveButtonProps}
+          saveButtonProps={{ ...saveButtonProps, children: "Save Changes", variant: "outlined", color: "secondary" }}
           title={<Typography variant="h5">Edit Product</Typography>}
           breadcrumb={null}
           headerButtons={
@@ -125,7 +125,7 @@ export const ProductEdit = () => {
                               ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
                               sx={(theme) => ({
                                 position: 'relative', width: 100, height: 100,
-                                border: index === 0 ? `3px solid ${theme.palette.primary.main}` : `1px solid ${theme.palette.grey[200]}`,
+                                border: `1px solid ${theme.palette.divider}`,
                                 borderRadius: '8px', overflow: 'hidden', cursor: 'grab',
                               })}
                             >
@@ -145,7 +145,7 @@ export const ProductEdit = () => {
                               >
                                 <ZoomInIcon />
                               </Box>
-                              {index === 0 && ( <Typography sx={{ position: 'absolute', top: 0, left: 0, background: 'primary.main', color: 'white', padding: '2px 6px', fontSize: '0.7rem', borderBottomRightRadius: '4px', zIndex: 1 }}>Main</Typography> )}
+                              {index === 0 && ( <Typography sx={(theme) => ({ position: 'absolute', top: 0, left: 0, background: theme.palette.primary.main, color: theme.palette.primary.contrastText, padding: '2px 6px', fontSize: '0.7rem', borderBottomRightRadius: '4px', zIndex: 1 })}>Main</Typography> )}
                               <img src={images?.[index]} alt={`product-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               <IconButton size="small" onClick={() => remove(index)} sx={{ position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(255, 255, 255, 0.8)', zIndex: 1, '&:hover': { backgroundColor: 'rgba(255, 255, 255, 1)'} }}>
                                 <DeleteIcon fontSize="small" />
@@ -159,7 +159,7 @@ export const ProductEdit = () => {
                   )}
                 </Droppable>
               </DragDropContext>
-              <Button variant="contained" component="label" disabled={isUploading}>
+              <Button variant="outlined" color="secondary" component="label" disabled={isUploading}>
                 {isUploading ? "Uploading..." : "Upload Image"}
                 <input type="file" hidden accept="image/*" onChange={handleImageUpload}/>
               </Button>
@@ -175,7 +175,7 @@ export const ProductEdit = () => {
           backdrop: {
             timeout: 500,
             sx: {
-              backdropFilter: 'blur(4px)',
+              backgroundColor: 'rgba(0, 0, 0, 0.2)',
             }
           },
         }}

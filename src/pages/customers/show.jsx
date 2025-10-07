@@ -1,16 +1,32 @@
 import { useShow } from "@refinedev/core";
 import { Show, ListButton } from "@refinedev/mui";
-import { Box, Typography, Paper, Grid, Stack, CircularProgress } from "@mui/material";
+import { Box, Typography, Paper, Grid, Stack } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import { useMemo, useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { supabaseAdminClient } from "../../supabase"; // Use the admin client for this direct call
+import { supabaseAdminClient } from "../../supabase"; 
 
-// A small helper to format addresses consistently
+// Helper to format addresses consistently
 const formatAddress = (address) => {
     if (!address) return "No primary address on file.";
     return `${address.address || ''}, ${address.city || ''}, ${address.state || ''} - ${address.postalCode || ''}`;
 };
+
+// New, more elegant component for displaying detail items
+const DetailItem = ({ label, value }) => (
+  <Box>
+    <Typography
+      variant="caption"
+      color="text.secondary"
+      sx={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}
+    >
+      {label}
+    </Typography>
+    <Typography variant="body1" fontWeight={500} sx={{ mt: 0.5 }}>
+      {value}
+    </Typography>
+  </Box>
+);
 
 export const CustomerShow = () => {
     const { id } = useParams();
@@ -19,13 +35,10 @@ export const CustomerShow = () => {
     const [orderHistory, setOrderHistory] = useState([]);
     const [isLoadingOrders, setIsLoadingOrders] = useState(true);
 
-    // Fetch the customer's details from the 'customers' view
     const { queryResult: customerQueryResult } = useShow({ resource: "customers", id });
     const customer = customerQueryResult.data?.data;
 
-    // --- MANUAL DATA FETCH FOR ORDER HISTORY ---
     useEffect(() => {
-        // Only fetch if the customer ID is available
         if (id) {
             setIsLoadingOrders(true);
             const fetchOrderHistory = async () => {
@@ -33,16 +46,14 @@ export const CustomerShow = () => {
                     const { data, error } = await supabaseAdminClient
                         .from('orders')
                         .select('*')
-                        .eq('user_id', id) // The crucial filter using the user's UUID
+                        .eq('user_id', id)
                         .order('created_at', { ascending: false });
 
-                    if (error) {
-                        throw error;
-                    }
+                    if (error) throw error;
                     setOrderHistory(data || []);
                 } catch (err) {
                     console.error("Error fetching order history:", err);
-                    setOrderHistory([]); // Set to empty on error
+                    setOrderHistory([]);
                 } finally {
                     setIsLoadingOrders(false);
                 }
@@ -50,7 +61,7 @@ export const CustomerShow = () => {
 
             fetchOrderHistory();
         }
-    }, [id]); // This effect runs whenever the customer ID from the URL changes
+    }, [id]);
 
     const orderColumns = useMemo(() => [
         { field: "id", headerName: "Order ID", minWidth: 80 },
@@ -59,6 +70,22 @@ export const CustomerShow = () => {
             headerName: "Date", 
             minWidth: 180,
             renderCell: (params) => new Date(params.value).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric'})
+        },
+        {
+          field: "products",
+          headerName: "Products",
+          flex: 1,
+          minWidth: 250,
+          renderCell: (params) => (
+            <Box sx={{ py: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflowY: 'auto' }}>
+              {(params.value || []).map((product) => (
+                <Typography key={product.id} variant="body2" sx={{ my: 0.5 }}>
+                  {product.name}
+                </Typography>
+              ))}
+            </Box>
+          ),
+          sortable: false,
         },
         { field: "order_status", headerName: "Status", minWidth: 120 },
         { 
@@ -84,15 +111,16 @@ export const CustomerShow = () => {
                     <Stack spacing={3}>
                         <Paper sx={{ p: 3, height: '100%' }}>
                             <Typography variant="h6" gutterBottom>Customer Details</Typography>
-                            <Stack spacing={1}>
-                                <Typography variant="body2"><strong>Name:</strong> {customer?.name || 'Not provided'}</Typography>
-                                <Typography variant="body2"><strong>Email:</strong> {customer?.email}</Typography>
-                                <Typography variant="body2"><strong>Total Orders:</strong> {customer?.total_orders || 0}</Typography>
-                                <Typography variant="body2">
-                                    <strong>Total Spent:</strong> ₹{Number(customer?.total_spent || 0).toLocaleString('en-IN', {
+                            <Stack spacing={2.5} sx={{ mt: 3 }}>
+                                <DetailItem label="Name" value={customer?.name || 'Not provided'} />
+                                <DetailItem label="Email" value={customer?.email} />
+                                <DetailItem label="Total Orders" value={customer?.total_orders || 0} />
+                                <DetailItem 
+                                    label="Total Spent" 
+                                    value={`₹${Number(customer?.total_spent || 0).toLocaleString('en-IN', {
                                         minimumFractionDigits: 2, maximumFractionDigits: 2,
-                                    })}
-                                </Typography>
+                                    })}`} 
+                                />
                             </Stack>
                         </Paper>
                         <Paper sx={{ p: 3 }}>
@@ -114,6 +142,7 @@ export const CustomerShow = () => {
                             disableRowSelectionOnClick
                             onRowClick={(params) => navigate(`/orders/show/${params.id}`)}
                             sx={{ border: 'none' }}
+                            rowHeight={80} 
                             initialState={{
                                 pagination: {
                                     paginationModel: { pageSize: 5, page: 0 },

@@ -49,7 +49,7 @@ export const ProductCreate = () => {
   return (
     <>
       <Create 
-          saveButtonProps={saveButtonProps}
+          saveButtonProps={{ ...saveButtonProps, children: "Save Product", variant: "outlined", color: "secondary" }}
           title={<Typography variant="h5">Create New Product</Typography>}
           breadcrumb={null}
       >
@@ -93,14 +93,14 @@ export const ProductCreate = () => {
                   {(images || []).map((imageUrl, index) => (
                       <Box key={index} sx={(theme) => ({ 
                           position: 'relative', width: 100, height: 100,
-                          border: index === 0 ? `3px solid ${theme.palette.primary.main}` : `1px solid ${theme.palette.grey[200]}`,
+                          border: `1px solid ${theme.palette.divider}`,
                           borderRadius: '8px', overflow: 'hidden',
                           '&:hover .preview-overlay': { opacity: 1 }
                       })}>
                           <Box className="preview-overlay" onClick={() => handleOpenPreview(imageUrl)} sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', opacity: 0, transition: 'opacity 0.2s', cursor: 'pointer' }}>
                             <ZoomInIcon />
                           </Box>
-                          {index === 0 && ( <Typography sx={{ position: 'absolute', top: 0, left: 0, background: 'primary.main', color: 'white', padding: '2px 6px', fontSize: '0.7rem', borderBottomRightRadius: '4px' }}>Main</Typography> )}
+                          {index === 0 && ( <Typography sx={{ position: 'absolute', top: 0, left: 0, background: theme.palette.primary.main, color: theme.palette.primary.contrastText, padding: '2px 6px', fontSize: '0.7rem', borderBottomRightRadius: '4px' }}>Main</Typography> )}
                           <img src={imageUrl} alt={`product-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           <IconButton size="small" onClick={() => remove(index)} sx={{ position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
                               <DeleteIcon fontSize="small" />
@@ -108,7 +108,7 @@ export const ProductCreate = () => {
                       </Box>
                   ))}
               </Box>
-              <Button variant="contained" component="label" disabled={isUploading}>
+              <Button variant="outlined" color="secondary" component="label" disabled={isUploading}>
                 {isUploading ? "Uploading..." : "Upload Image"}
                 <input type="file" hidden accept="image/*" onChange={handleImageUpload} />
               </Button>
@@ -123,8 +123,8 @@ export const ProductCreate = () => {
         slotProps={{
           backdrop: {
             timeout: 500,
-             sx: {
-              backdropFilter: 'blur(4px)',
+            sx: {
+              backgroundColor: 'rgba(0, 0, 0, 0.2)',
             }
           },
         }}

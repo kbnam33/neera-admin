@@ -1,4 +1,4 @@
-import { useDataGrid, List, ShowButton } from "@refinedev/mui";
+import { useDataGrid, List } from "@refinedev/mui";
 import { DataGrid } from "@mui/x-data-grid";
 import { Paper, Typography, IconButton, Menu, MenuItem, Box, Stack } from "@mui/material";
 import { useNavigate } from "react-router-dom";
@@ -59,9 +59,10 @@ export const CustomerList = () => {
         field: "actions",
         headerName: "Actions",
         type: "actions",
-        width: 100,
+        minWidth: 100,
         align: "center",
         headerAlign: "center",
+        sortable: false,
         renderCell: ({ row }) => (
           <Box>
             <IconButton onClick={(e) => handleClick(e, row.id)}>

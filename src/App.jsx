@@ -45,7 +45,9 @@ function App() {
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <GlobalStyles styles={{ html: { WebkitFontSmoothing: "auto" } }} />
-          <RefineSnackbarProvider>
+          <RefineSnackbarProvider
+            anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+          >
             <DevtoolsProvider>
               <Refine
                 dataProvider={dataProviderInstance}
@@ -64,8 +66,8 @@ function App() {
                   {
                     name: "fabrics",
                     list: "/fabrics",
-                    create: "/products/create",
-                    edit: "/products/edit/:id",
+                    create: "/fabrics/create",
+                    edit: "/fabrics/edit/:id",
                     meta: { canDelete: true, icon: <Rows /> },
                   },
                    {

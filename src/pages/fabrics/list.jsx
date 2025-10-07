@@ -5,7 +5,7 @@ import { useDataGrid, List, CreateButton } from "@refinedev/mui";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Paper, Typography, Menu, MenuItem, IconButton } from "@mui/material";
-import { MoreVert, Edit } from "@mui/icons-material";
+import { MoreVert, Edit, Add } from "@mui/icons-material";
 
 export const FabricList = () => {
   const { dataGridProps } = useDataGrid({
@@ -49,9 +49,10 @@ export const FabricList = () => {
         field: "actions",
         headerName: "Actions",
         type: "actions",
-        width: 80,
+        minWidth: 100,
         align: "center",
         headerAlign: "center",
+        sortable: false,
         renderCell: ({ id }) => (
           <div>
             <IconButton
@@ -87,7 +88,14 @@ export const FabricList = () => {
   return (
     <List
       title=""
-      headerButtons={<CreateButton>+ Add Fabric</CreateButton>}
+      headerButtons={
+        <CreateButton 
+            variant="contained" 
+            startIcon={<Add />}
+        >
+            Add Fabric
+        </CreateButton>
+      }
     >
        <Paper sx={{
             height: '75vh',

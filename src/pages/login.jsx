@@ -16,7 +16,7 @@ export const Login = () => {
         }}
       >
         <Paper
-          elevation={3}
+          elevation={0}
           sx={{
             p: 4,
             display: "flex",
@@ -25,7 +25,7 @@ export const Login = () => {
             width: '100%'
           }}
         >
-          <Typography component="h1" variant="h5" sx={{ mb: 1 }}>
+          <Typography component="h1" variant="h5" sx={{ mb: 1, fontFamily: "'Playfair Display', serif'", fontWeight: 700 }}>
             Neera Admin
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -66,7 +66,12 @@ export const Login = () => {
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2, py: 1.5 }}
+              color="primary"
+              sx={{ 
+                mt: 3, 
+                mb: 2, 
+                py: 1.5,
+              }}
             >
               Sign In
             </Button>

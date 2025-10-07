@@ -69,9 +69,10 @@ export const ProductList = () => {
         field: "actions",
         headerName: "Actions",
         type: "actions",
-        width: 80,
+        minWidth: 100,
         align: "center",
         headerAlign: "center",
+        sortable: false,
         renderCell: ({ id }) => (
           <Box onClick={(e) => e.stopPropagation()}>
             <IconButton
@@ -103,7 +104,12 @@ export const ProductList = () => {
                   document.getElementById(`delete-button-${id}`)?.click();
                   handleClose();
                 }}
-                sx={{color: 'error.main'}}
+                sx={(theme) => ({
+                    color: theme.palette.destructive.main,
+                    '&:hover': {
+                        backgroundColor: 'rgba(229, 115, 115, 0.08)'
+                    }
+                })}
               >
                  <Stack direction="row" alignItems="center" gap={1}>
                   <Delete sx={{ fontSize: '1.125rem' }} />
