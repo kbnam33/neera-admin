@@ -1,5 +1,5 @@
-import { Edit, useAutocomplete, ListButton, RefreshButton } from "@refinedev/mui";
-import { Box, TextField, Autocomplete, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade } from "@mui/material";
+import { Edit, useAutocomplete, ListButton, RefreshButton, DeleteButton } from "@refinedev/mui";
+import { Box, TextField, Autocomplete, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade, Stack } from "@mui/material";
 import { useForm } from "@refinedev/react-hook-form";
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
 import { supabaseClient } from "../../supabase";
@@ -15,11 +15,12 @@ export const ProductEdit = () => {
   
   const {
     saveButtonProps,
-    refineCore: { queryResult },
+    refineCore: { queryResult, onFinish },
     control,
     register,
     formState: { errors },
     reset,
+    handleSubmit,
   } = useForm();
 
   const [isUploading, setIsUploading] = useState(false);
@@ -62,10 +63,16 @@ export const ProductEdit = () => {
     move(result.source.index, result.destination.index);
   };
 
+  // Custom save handler to omit 'id' and other read-only fields
+  const handleSave = (values) => {
+    const { id, created_at, ...payload } = values;
+    onFinish(payload);
+  };
+
   return (
     <>
       <Edit 
-          saveButtonProps={{ ...saveButtonProps, children: "Save Changes", variant: "outlined", color: "secondary" }}
+          saveButtonProps={{ ...saveButtonProps, children: "Save", variant: "contained", color: "primary", onClick: handleSubmit(handleSave) }}
           title={<Typography variant="h5">Edit Product</Typography>}
           breadcrumb={null}
           headerButtons={
@@ -74,6 +81,12 @@ export const ProductEdit = () => {
               <RefreshButton size="small" />
             </Box>
           }
+          footerButtons={({ deleteButtonProps, saveButtonProps }) => (
+            <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ p: 2 }}>
+                <DeleteButton {...deleteButtonProps} variant="outlined" color="error" />
+                <Button {...saveButtonProps} />
+            </Stack>
+          )}
       >
         <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Paper sx={{ p: 3 }}>
@@ -189,3 +202,4 @@ export const ProductEdit = () => {
     </>
   );
 };
+

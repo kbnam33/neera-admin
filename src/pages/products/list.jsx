@@ -134,7 +134,8 @@ export const ProductList = () => {
     <List
         headerButtons={
           <CreateButton
-            variant="contained"
+            variant="outlined"
+            color="secondary"
             startIcon={<Add />}
           >
             Add Product
@@ -161,3 +162,4 @@ export const ProductList = () => {
     </List>
   );
 };
+
