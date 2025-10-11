@@ -36,7 +36,7 @@ export const ProductCreate = () => {
     try {
       await supabaseClient.storage.from("product-images").upload(fileName, file);
       const { data: { publicUrl } } = supabaseClient.storage.from("product-images").getPublicUrl(fileName);
-      append({ url: publicUrl }); // Correctly append object
+      append(publicUrl);
     } catch (error) {
       console.error("Error uploading image:", error);
       alert("Image upload failed. Please try again.");
@@ -49,7 +49,7 @@ export const ProductCreate = () => {
   return (
     <>
       <Create 
-          saveButtonProps={{ ...saveButtonProps, children: "Save Product", variant: "contained", color: "primary" }}
+          saveButtonProps={{ ...saveButtonProps, children: "Save Product", variant: "outlined", color: "secondary" }}
           title={<Typography variant="h5">Create New Product</Typography>}
           breadcrumb={null}
       >
@@ -90,18 +90,18 @@ export const ProductCreate = () => {
               <Typography variant="h6" gutterBottom>Images</Typography>
               <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>The first image in the list will be the main product image.</Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-                  {fields.map((field, index) => (
-                      <Box key={field.id} sx={(theme) => ({ 
+                  {(images || []).map((imageUrl, index) => (
+                      <Box key={index} sx={(theme) => ({ 
                           position: 'relative', width: 100, height: 100,
                           border: `1px solid ${theme.palette.divider}`,
                           borderRadius: '8px', overflow: 'hidden',
                           '&:hover .preview-overlay': { opacity: 1 }
                       })}>
-                          <Box className="preview-overlay" onClick={() => handleOpenPreview(field.url)} sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', opacity: 0, transition: 'opacity 0.2s', cursor: 'pointer' }}>
+                          <Box className="preview-overlay" onClick={() => handleOpenPreview(imageUrl)} sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', opacity: 0, transition: 'opacity 0.2s', cursor: 'pointer' }}>
                             <ZoomInIcon />
                           </Box>
                           {index === 0 && ( <Typography sx={{ position: 'absolute', top: 0, left: 0, background: theme.palette.primary.main, color: theme.palette.primary.contrastText, padding: '2px 6px', fontSize: '0.7rem', borderBottomRightRadius: '4px' }}>Main</Typography> )}
-                          <img src={field.url} alt={`product-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <img src={imageUrl} alt={`product-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           <IconButton size="small" onClick={() => remove(index)} sx={{ position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
                               <DeleteIcon fontSize="small" />
                           </IconButton>
@@ -138,4 +138,3 @@ export const ProductCreate = () => {
     </>
   );
 };
-
