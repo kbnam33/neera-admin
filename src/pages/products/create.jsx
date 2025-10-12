@@ -1,5 +1,5 @@
 import { Create, useAutocomplete } from "@refinedev/mui";
-import { Box, TextField, Autocomplete, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade } from "@mui/material";
+import { Box, TextField, Autocomplete, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade, useTheme } from "@mui/material";
 import { useForm } from "@refinedev/react-hook-form";
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
 import { supabaseClient } from "../../supabase";
@@ -10,6 +10,7 @@ import { useState } from "react";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 export const ProductCreate = () => {
+  const theme = useTheme();
   const {
     saveButtonProps,
     control,
@@ -112,11 +113,11 @@ export const ProductCreate = () => {
                           {(provided) => (
                             <Box
                               ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
-                              sx={(theme) => ({
+                              sx={{
                                 position: 'relative', width: 100, height: 100,
                                 border: `1px solid ${theme.palette.divider}`,
                                 borderRadius: '8px', overflow: 'hidden', cursor: 'grab',
-                              })}
+                              }}
                             >
                               <Box 
                                 className="preview-overlay" 
@@ -134,7 +135,7 @@ export const ProductCreate = () => {
                               >
                                 <ZoomInIcon />
                               </Box>
-                              {index === 0 && ( <Typography sx={(theme) => ({ position: 'absolute', top: 0, left: 0, background: theme.palette.primary.main, color: theme.palette.primary.contrastText, padding: '2px 6px', fontSize: '0.7rem', borderBottomRightRadius: '4px', zIndex: 1 })}>Main</Typography> )}
+                              {index === 0 && ( <Typography sx={{ position: 'absolute', top: 0, left: 0, background: theme.palette.primary.main, color: theme.palette.primary.contrastText, padding: '2px 6px', fontSize: '0.7rem', borderBottomRightRadius: '4px', zIndex: 1 }}>Main</Typography> )}
                               <img src={images?.[index]} alt={`product-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               <IconButton size="small" onClick={() => remove(index)} sx={{ position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(255, 255, 255, 0.8)', zIndex: 1, '&:hover': { backgroundColor: 'rgba(255, 255, 255, 1)'} }}>
                                 <DeleteIcon fontSize="small" />
