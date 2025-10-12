@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from "uuid";
 import DeleteIcon from '@mui/icons-material/Delete';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import { useState } from "react";
+import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 export const ProductCreate = () => {
   const {
@@ -14,7 +15,15 @@ export const ProductCreate = () => {
     control,
     register,
     formState: { errors },
-  } = useForm();
+  } = useForm({
+    defaultValues: {
+      name: "",
+      description: "",
+      price: null,
+      fabric_type: "",
+      images: [],
+    },
+  });
 
   const [isUploading, setIsUploading] = useState(false);
   const [previewImage, setPreviewImage] = useState("");
@@ -22,7 +31,7 @@ export const ProductCreate = () => {
   const handleOpenPreview = (url) => setPreviewImage(url);
   const handleClosePreview = () => setPreviewImage("");
 
-  const { fields, append, remove } = useFieldArray({ control, name: "images" });
+  const { fields, append, remove, move } = useFieldArray({ control, name: "images" });
   const images = useWatch({ control, name: "images" });
   const { autocompleteProps } = useAutocomplete({ resource: "fabrics" });
   
@@ -44,6 +53,11 @@ export const ProductCreate = () => {
       setIsUploading(false);
       event.target.value = "";
     }
+  };
+
+  const onDragEnd = (result) => {
+    if (!result.destination) return;
+    move(result.source.index, result.destination.index);
   };
 
   return (
@@ -88,26 +102,52 @@ export const ProductCreate = () => {
           
           <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>Images</Typography>
-              <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>The first image in the list will be the main product image.</Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-                  {(images || []).map((imageUrl, index) => (
-                      <Box key={index} sx={(theme) => ({ 
-                          position: 'relative', width: 100, height: 100,
-                          border: `1px solid ${theme.palette.divider}`,
-                          borderRadius: '8px', overflow: 'hidden',
-                          '&:hover .preview-overlay': { opacity: 1 }
-                      })}>
-                          <Box className="preview-overlay" onClick={() => handleOpenPreview(imageUrl)} sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', opacity: 0, transition: 'opacity 0.2s', cursor: 'pointer' }}>
-                            <ZoomInIcon />
-                          </Box>
-                          {index === 0 && ( <Typography sx={{ position: 'absolute', top: 0, left: 0, background: theme.palette.primary.main, color: theme.palette.primary.contrastText, padding: '2px 6px', fontSize: '0.7rem', borderBottomRightRadius: '4px' }}>Main</Typography> )}
-                          <img src={imageUrl} alt={`product-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          <IconButton size="small" onClick={() => remove(index)} sx={{ position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
-                              <DeleteIcon fontSize="small" />
-                          </IconButton>
-                      </Box>
-                  ))}
-              </Box>
+              <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>Drag and drop images to reorder. The first image is the main image.</Typography>
+              <DragDropContext onDragEnd={onDragEnd}>
+                <Droppable droppableId="images" direction="horizontal">
+                  {(provided) => (
+                    <Box {...provided.droppableProps} ref={provided.innerRef} sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+                      {fields.map((field, index) => (
+                        <Draggable key={field.id} draggableId={field.id} index={index}>
+                          {(provided) => (
+                            <Box
+                              ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
+                              sx={(theme) => ({
+                                position: 'relative', width: 100, height: 100,
+                                border: `1px solid ${theme.palette.divider}`,
+                                borderRadius: '8px', overflow: 'hidden', cursor: 'grab',
+                              })}
+                            >
+                              <Box 
+                                className="preview-overlay" 
+                                onClick={() => handleOpenPreview(images?.[index])} 
+                                sx={{ 
+                                  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
+                                  backgroundColor: 'rgba(0,0,0,0.3)', 
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                  color: 'white', opacity: 1, transition: 'background-color 0.2s', 
+                                  cursor: 'pointer',
+                                  '&:hover': {
+                                    backgroundColor: 'rgba(0,0,0,0.5)',
+                                  }
+                                }}
+                              >
+                                <ZoomInIcon />
+                              </Box>
+                              {index === 0 && ( <Typography sx={(theme) => ({ position: 'absolute', top: 0, left: 0, background: theme.palette.primary.main, color: theme.palette.primary.contrastText, padding: '2px 6px', fontSize: '0.7rem', borderBottomRightRadius: '4px', zIndex: 1 })}>Main</Typography> )}
+                              <img src={images?.[index]} alt={`product-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <IconButton size="small" onClick={() => remove(index)} sx={{ position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(255, 255, 255, 0.8)', zIndex: 1, '&:hover': { backgroundColor: 'rgba(255, 255, 255, 1)'} }}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </Box>
+                  )}
+                </Droppable>
+              </DragDropContext>
               <Button variant="outlined" color="secondary" component="label" disabled={isUploading}>
                 {isUploading ? "Uploading..." : "Upload Image"}
                 <input type="file" hidden accept="image/*" onChange={handleImageUpload} />
