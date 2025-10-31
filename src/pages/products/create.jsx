@@ -1,13 +1,41 @@
 import { Create, useAutocomplete } from "@refinedev/mui";
-import { Box, TextField, Autocomplete, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade, useTheme } from "@mui/material";
-import { useForm } from "@refinedev/react-hook-form";
-import { Controller, useFieldArray, useWatch } from "react-hook-form";
+import { 
+    Box, TextField, Autocomplete, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade, useTheme, 
+    Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText 
+} from "@mui/material";
+import { useForm, Controller, useFieldArray, useWatch } from "react-hook-form";
 import { supabaseClient } from "../../supabase";
 import { v4 as uuidv4 } from "uuid";
 import DeleteIcon from '@mui/icons-material/Delete';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'; // Import copy icon
+import CloseIcon from '@mui/icons-material/Close';
 import { useState } from "react";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { useList } from "@refinedev/core";
+
+// --- Copy Product Modal ---
+const CopyProductModal = ({ open, onClose, products, onSelectProduct }) => {
+    return (
+        <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                Copy Content From...
+                <IconButton onClick={onClose} size="small">
+                    <CloseIcon />
+                </IconButton>
+            </DialogTitle>
+            <DialogContent dividers>
+                <List dense>
+                    {products?.map((product) => (
+                        <ListItemButton key={product.id} onClick={() => onSelectProduct(product.id)}>
+                            <ListItemText primary={product.name} />
+                        </ListItemButton>
+                    ))}
+                </List>
+            </DialogContent>
+        </Dialog>
+    );
+};
 
 export const ProductCreate = () => {
   const theme = useTheme();
@@ -16,10 +44,14 @@ export const ProductCreate = () => {
     control,
     register,
     formState: { errors },
+    setValue, // Import setValue from useForm
   } = useForm({
     defaultValues: {
       name: "",
+      short_description: "",
       description: "",
+      care_instructions: "",
+      shipping_returns: "",
       price: null,
       fabric_type: "",
       images: [],
@@ -28,9 +60,34 @@ export const ProductCreate = () => {
 
   const [isUploading, setIsUploading] = useState(false);
   const [previewImage, setPreviewImage] = useState("");
+  const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
+  const [copyTargetField, setCopyTargetField] = useState(null); // 'short_description', 'description', etc.
+  
+  const { data: productsData } = useList({ resource: "products" });
+  const products = productsData?.data || [];
 
   const handleOpenPreview = (url) => setPreviewImage(url);
   const handleClosePreview = () => setPreviewImage("");
+
+  // Function to open the modal and set which field we're copying to
+  const handleOpenCopyModal = (fieldName) => {
+    setCopyTargetField(fieldName);
+    setIsCopyModalOpen(true);
+  };
+  const handleCloseCopyModal = () => {
+    setIsCopyModalOpen(false);
+    setCopyTargetField(null);
+  };
+
+  // Function to handle copying details from the selected product
+  const handleSelectProductToCopy = (selectedProductId) => {
+    if (!copyTargetField) return;
+    const productToCopy = products.find(p => p.id === selectedProductId);
+    if (productToCopy) {
+      setValue(copyTargetField, productToCopy[copyTargetField] || "");
+    }
+    handleCloseCopyModal();
+  };
 
   const { fields, append, remove, move } = useFieldArray({ control, name: "images" });
   const images = useWatch({ control, name: "images" });
@@ -61,6 +118,37 @@ export const ProductCreate = () => {
     move(result.source.index, result.destination.index);
   };
 
+  // Helper component for TextFields with Copy Button
+  const TextFieldWithCopy = ({ fieldName, label, required = false, rows = 1 }) => (
+    <Box sx={{ position: 'relative' }}>
+      <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>{label}</Typography>
+      <TextField 
+        {...register(fieldName, { required: required ? "This field is required" : false })} 
+        error={!!errors[fieldName]} 
+        helperText={errors[fieldName]?.message} 
+        margin="none" 
+        fullWidth 
+        multiline={rows > 1}
+        rows={rows}
+        name={fieldName} 
+        variant="outlined" 
+      />
+      <IconButton 
+          size="small" 
+          onClick={() => handleOpenCopyModal(fieldName)}
+          sx={{ 
+            position: 'absolute', 
+            top: 28, // Adjust based on Typography height + spacing
+            right: 8, 
+            color: 'text.secondary' 
+          }}
+          title={`Copy ${label} from another product`}
+        >
+          <ContentCopyIcon fontSize="small" />
+      </IconButton>
+    </Box>
+  );
+
   return (
     <>
       <Create 
@@ -75,10 +163,20 @@ export const ProductCreate = () => {
                       <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Name</Typography>
                       <TextField {...register("name", { required: "This field is required" })} error={!!errors.name} helperText={errors.name?.message} margin="none" fullWidth name="name" variant="outlined" autoFocus />
                   </Grid>
+
                   <Grid item xs={12}>
-                      <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Description</Typography>
-                      <TextField {...register("description")} margin="none" fullWidth multiline rows={4} name="description" variant="outlined" />
+                     <TextFieldWithCopy fieldName="short_description" label="Short Description (under title)" rows={2} />
                   </Grid>
+                  <Grid item xs={12}>
+                      <TextFieldWithCopy fieldName="description" label="Details & Craftsmanship" rows={4} />
+                  </Grid>
+                  <Grid item xs={12}>
+                      <TextFieldWithCopy fieldName="care_instructions" label="Care Instructions" rows={4} />
+                  </Grid>
+                  <Grid item xs={12}>
+                     <TextFieldWithCopy fieldName="shipping_returns" label="Shipping & Returns" rows={4} />
+                  </Grid>
+
                   <Grid item xs={12} sm={6}>
                       <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Price (in ₹)</Typography>
                       <TextField {...register("price", { required: "This field is required", valueAsNumber: true })} error={!!errors.price} helperText={errors.price?.message} margin="none" fullWidth type="number" name="price" variant="outlined" />
@@ -156,6 +254,8 @@ export const ProductCreate = () => {
           </Paper>
         </Box>
       </Create>
+
+      {/* Image Preview Modal */}
       <Modal
         open={!!previewImage}
         onClose={handleClosePreview}
@@ -164,9 +264,7 @@ export const ProductCreate = () => {
         slotProps={{
           backdrop: {
             timeout: 500,
-            sx: {
-              backgroundColor: 'rgba(0, 0, 0, 0.2)',
-            }
+            sx: { backgroundColor: 'rgba(0, 0, 0, 0.2)' }
           },
         }}
       >
@@ -176,6 +274,14 @@ export const ProductCreate = () => {
           </Box>
         </Fade>
       </Modal>
+
+      {/* Copy Product Details Modal */}
+      <CopyProductModal 
+        open={isCopyModalOpen} 
+        onClose={handleCloseCopyModal} 
+        products={products} 
+        onSelectProduct={handleSelectProductToCopy} 
+      />
     </>
   );
 };
