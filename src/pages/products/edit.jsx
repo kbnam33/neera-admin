@@ -128,6 +128,7 @@ export const ProductEdit = () => {
     const currentProductId = parseInt(productId, 10); 
     const productToCopy = products.find(p => p.id === selectedProductId);
     if (productToCopy && productToCopy.id !== currentProductId) {
+      // Use setValue to update the form state and mark it as dirty
       setValue(copyTargetField, productToCopy[copyTargetField] || "", { shouldDirty: true }); 
     }
     handleCloseCopyModal();
@@ -138,6 +139,7 @@ export const ProductEdit = () => {
 
   useEffect(() => {
     if (productData && !isDirty) { 
+        // Ensure all fields, especially new ones, are in the defaultValues
         const defaultValues = { 
             ...productData, 
             name: productData.name || "",
@@ -180,19 +182,18 @@ export const ProductEdit = () => {
     move(result.source.index, result.destination.index);
   };
 
-  // ***** FIX APPLIED HERE: Explicitly exclude id and created_at *****
+  // This custom save handler strips out 'id' and 'created_at'
   const handleSave = (values) => {
     // Destructure to remove 'id' and 'created_at' before passing to onFinish
     const { id, created_at, ...updatePayload } = values; 
     console.log("Submitting payload:", updatePayload); // For debugging
     onFinish?.(updatePayload); // Pass the cleaned payload
   };
-  // ***** FIX APPLIED HERE *****
   
   return (
     <>
       <Edit 
-          saveButtonProps={saveButtonProps} 
+          // We remove saveButtonProps from here because we use a custom footer
           title={<Typography variant="h5">Edit Product</Typography>}
           breadcrumb={null}
           headerButtons={
@@ -202,11 +203,16 @@ export const ProductEdit = () => {
             </Box>
           }
           isLoading={isFormLoading} 
-          footerButtons={({ deleteButtonProps, saveButtonProps: providedSaveButtonProps }) => ( 
+          footerButtons={({ deleteButtonProps }) => ( 
             <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ p: 2 }}>
                 <DeleteButton {...deleteButtonProps} variant="outlined" color="error" />
+                {/* --- MODIFICATION: THIS IS THE FIX ---
+                  We use the 'saveButtonProps' from 'useForm' here.
+                  This button is now wired to 'handleSubmit(handleSave)',
+                  which correctly strips the 'id' field before saving.
+                */}
                 <Button 
-                    {...providedSaveButtonProps} 
+                    {...saveButtonProps} // Use saveButtonProps from useForm
                     type="submit" 
                     form="product-edit-form" 
                     variant="outlined"         
@@ -215,12 +221,14 @@ export const ProductEdit = () => {
                 >
                     Save Changes 
                 </Button> 
+                {/* --- END MODIFICATION --- */}
             </Stack>
           )}
       >
         {isFormLoading ? (
             <Typography>Loading product data...</Typography> 
         ) : (
+            // The form's onSubmit is wired to our custom handleSave
             <Box component="form" id="product-edit-form" onSubmit={handleSubmit(handleSave)} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Paper sx={{ p: 3 }}>
                 <Grid container spacing={3}>
@@ -371,6 +379,15 @@ export const ProductEdit = () => {
         open={Boolean(previewImage)} 
         onClose={handleClosePreview}
         // ... rest of modal props
+         slots={{ backdrop: Backdrop }}
+        slotProps={{
+          backdrop: {
+            timeout: 500,
+            sx: {
+              backgroundColor: 'rgba(0, 0, 0, 0.2)',
+            }
+          },
+        }}
       >
         <Fade in={Boolean(previewImage)}> 
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
