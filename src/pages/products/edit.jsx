@@ -19,7 +19,6 @@ import { useList, useResource } from "@refinedev/core";
 
 // --- Copy Product Modal ---
 const CopyProductModal = ({ open, onClose, products, onSelectProduct }) => {
-    // Component remains the same
     return (
         <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
             <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -43,7 +42,6 @@ const CopyProductModal = ({ open, onClose, products, onSelectProduct }) => {
 
 // Helper component for TextFields with Copy Button
 const TextFieldWithCopy = ({ control, errors, fieldName, label, required = false, rows = 1, handleOpenCopyModal }) => (
-    // Component remains the same
      <Box sx={{ position: 'relative' }}>
         <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>{label}</Typography>
         <Controller
@@ -182,18 +180,18 @@ export const ProductEdit = () => {
     move(result.source.index, result.destination.index);
   };
 
-  // This custom save handler strips out 'id' and 'created_at'
+  // *** THIS IS THE FIX ***
+  // This function takes all form data, removes 'id' and 'created_at',
+  // and then sends only the clean data to be saved.
   const handleSave = (values) => {
-    // Destructure to remove 'id' and 'created_at' before passing to onFinish
     const { id, created_at, ...updatePayload } = values; 
-    console.log("Submitting payload:", updatePayload); // For debugging
     onFinish?.(updatePayload); // Pass the cleaned payload
   };
+  // *** END OF FIX ***
   
   return (
     <>
       <Edit 
-          // We remove saveButtonProps from here because we use a custom footer
           title={<Typography variant="h5">Edit Product</Typography>}
           breadcrumb={null}
           headerButtons={
@@ -203,32 +201,30 @@ export const ProductEdit = () => {
             </Box>
           }
           isLoading={isFormLoading} 
+          // *** THIS IS THE FIX ***
+          // The footerButtons now correctly wire the "Save Changes" button
+          // to use the 'handleSubmit(handleSave)' function defined above.
           footerButtons={({ deleteButtonProps }) => ( 
             <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ p: 2 }}>
                 <DeleteButton {...deleteButtonProps} variant="outlined" color="error" />
-                {/* --- MODIFICATION: THIS IS THE FIX ---
-                  We use the 'saveButtonProps' from 'useForm' here.
-                  This button is now wired to 'handleSubmit(handleSave)',
-                  which correctly strips the 'id' field before saving.
-                */}
                 <Button 
                     {...saveButtonProps} // Use saveButtonProps from useForm
                     type="submit" 
-                    form="product-edit-form" 
+                    form="product-edit-form" // This ID must match the form's ID
                     variant="outlined"         
                     color="secondary"          
                     startIcon={<SaveIcon />}     
                 >
                     Save Changes 
                 </Button> 
-                {/* --- END MODIFICATION --- */}
             </Stack>
           )}
       >
         {isFormLoading ? (
             <Typography>Loading product data...</Typography> 
         ) : (
-            // The form's onSubmit is wired to our custom handleSave
+            // *** THIS IS THE FIX ***
+            // The <Box> is now a <form> with the matching ID and onSubmit handler
             <Box component="form" id="product-edit-form" onSubmit={handleSubmit(handleSave)} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Paper sx={{ p: 3 }}>
                 <Grid container spacing={3}>
