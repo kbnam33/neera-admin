@@ -1,19 +1,21 @@
 import { Create, useAutocomplete } from "@refinedev/mui";
 import { 
     Box, TextField, Autocomplete, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade, useTheme, 
-    Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText 
+    Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, Stack
 } from "@mui/material";
 import { useForm, Controller, useFieldArray, useWatch } from "react-hook-form";
 import { supabaseClient } from "../../supabase";
 import { v4 as uuidv4 } from "uuid";
 import DeleteIcon from '@mui/icons-material/Delete';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy'; // Import copy icon
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save';
+import ImageSearchIcon from '@mui/icons-material/ImageSearch';
 import { useState } from "react";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useList } from "@refinedev/core";
+import { ProductImagePicker } from "../../components/ProductImagePicker"; 
 
 // --- Copy Product Modal ---
 const CopyProductModal = ({ open, onClose, products, onSelectProduct }) => {
@@ -40,7 +42,6 @@ const CopyProductModal = ({ open, onClose, products, onSelectProduct }) => {
 
 export const ProductCreate = () => {
   const theme = useTheme();
-  // --- FIX: Generate ONE UUID for the folder, once per component load ---
   const [tempFolderId] = useState(uuidv4()); 
 
   const {
@@ -72,6 +73,7 @@ export const ProductCreate = () => {
   const [previewImage, setPreviewImage] = useState("");
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
   const [copyTargetField, setCopyTargetField] = useState(null); 
+  const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   
   const { data: productsData } = useList({ resource: "products" });
   const products = productsData?.data || [];
@@ -107,7 +109,6 @@ export const ProductCreate = () => {
 
     setIsUploading(true);
     
-    // --- FIX: Use the stable tempFolderId for all uploads in this session ---
     const fileName = `${tempFolderId}/${uuidv4()}-${file.name}`; 
     
     try {
@@ -123,12 +124,23 @@ export const ProductCreate = () => {
     }
   };
 
+  // --- FIX: Updated handler for multi-select ---
+  const handleSelectImagesFromPicker = (urls) => {
+    if (!urls || urls.length === 0) return;
+    
+    const currentImages = images || []; // Get current images from useWatch
+    const newUrls = urls.filter(url => !currentImages.includes(url)); // Filter duplicates
+    
+    if (newUrls.length > 0) {
+        append(newUrls); // Append all new URLs at once
+    }
+  };
+
   const onDragEnd = (result) => {
     if (!result.destination) return;
     move(result.source.index, result.destination.index);
   };
 
-  // Helper component for TextFields with Copy Button
   const TextFieldWithCopy = ({ fieldName, label, required = false, rows = 1 }) => (
     <Box sx={{ position: 'relative' }}>
       <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>{label}</Typography>
@@ -148,7 +160,7 @@ export const ProductCreate = () => {
           onClick={() => handleOpenCopyModal(fieldName)}
           sx={{ 
             position: 'absolute', 
-            top: 28, // Adjust based on Typography height + spacing
+            top: 28,
             right: 8, 
             color: 'text.secondary' 
           }}
@@ -159,7 +171,6 @@ export const ProductCreate = () => {
     </Box>
   );
 
-  // Handle save manually to strip 'created_at' or 'id'
   const handleSave = (values) => {
     const { id, created_at, ...createPayload } = values;
     onFinish?.(createPayload);
@@ -170,16 +181,14 @@ export const ProductCreate = () => {
       <Create 
           title={<Typography variant="h5">Create New Product</Typography>}
           breadcrumb={null}
-          // Use footerButtons to override default save button
           footerButtons={() => {
-            // Destructure onClick *out* of saveButtonProps to prevent default action
             const { onClick, ...restSaveButtonProps } = saveButtonProps;
 
             return (
               <Button
-                  {...restSaveButtonProps} // Spread props like 'disabled'
+                  {...restSaveButtonProps}
                   type="submit"
-                  form="product-create-form" // Link to form ID
+                  form="product-create-form"
                   variant="outlined"
                   color="secondary"
                   startIcon={<SaveIcon />}
@@ -189,7 +198,6 @@ export const ProductCreate = () => {
             );
           }}
       >
-        {/* Use a form tag with onSubmit and ID */}
         <Box component="form" id="product-create-form" onSubmit={handleSubmit(handleSave)} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Paper sx={{ p: 3 }}>
               <Grid container spacing={3}>
@@ -281,10 +289,20 @@ export const ProductCreate = () => {
                   )}
                 </Droppable>
               </DragDropContext>
-              <Button variant="outlined" color="secondary" component="label" disabled={isUploading}>
-                {isUploading ? "Uploading..." : "Upload Image"}
-                <input type="file" hidden accept="image/*" onChange={handleImageUpload} />
-              </Button>
+              <Stack direction="row" spacing={1}>
+                <Button variant="outlined" color="secondary" component="label" disabled={isUploading}>
+                  {isUploading ? "Uploading..." : "Upload Image"}
+                  <input type="file" hidden accept="image/*" onChange={handleImageUpload} />
+                </Button>
+                <Button 
+                    variant="outlined" 
+                    color="primary" 
+                    startIcon={<ImageSearchIcon />}
+                    onClick={() => setIsImagePickerOpen(true)}
+                >
+                    Select from existing
+                </Button>
+              </Stack>
           </Paper>
         </Box>
       </Create>
@@ -315,6 +333,12 @@ export const ProductCreate = () => {
         onClose={handleCloseCopyModal} 
         products={products} 
         onSelectProduct={handleSelectProductToCopy} 
+      />
+
+      <ProductImagePicker
+        open={isImagePickerOpen}
+        onClose={() => setIsImagePickerOpen(false)}
+        onSelectImages={handleSelectImagesFromPicker} // Prop renamed to plural
       />
     </>
   );

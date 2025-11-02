@@ -5,25 +5,24 @@ import { useDataGrid, List, CreateButton, DeleteButton } from "@refinedev/mui";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Paper, Typography, Menu, MenuItem, IconButton, Stack, Box } from "@mui/material";
-import { MoreVert, Edit, Delete } from "@mui/icons-material";
-import { Add } from '@mui/icons-material';
-
+import { MoreVert, Edit, Delete, Add } from "@mui/icons-material";
 
 export const ProductList = () => {
+  // --- FIX: Removed setFilters and all filter logic ---
   const { dataGridProps } = useDataGrid({
     sorters: {
       initial: [
         {
-          field: "created_at",
+          field: "id",
           order: "desc",
         },
       ],
     },
-    // Ensure pagination is enabled (it is by default)
     pagination: {
-      pageSize: 10, // You can set a default page size
+      pageSize: 10,
     },
   });
+
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [currentRowId, setCurrentRowId] = useState(null);
@@ -146,18 +145,19 @@ export const ProductList = () => {
           </CreateButton>
         }
     >
+        {/* --- FIX: Search Bar Paper component removed --- */}
+
+        {/* --- Data Grid --- */}
         <Paper sx={{
-            height: '75vh', // Container has a fixed height
+            height: '75vh',
             width: '100%',
         }}>
             <DataGrid
               {...dataGridProps}
               columns={columns}
-              // autoHeight // <-- This was removed, which is correct
-              rowHeight={72} // <-- FIX: Added explicit rowHeight to match your old 'py: 22px' padding
+              rowHeight={72} 
               disableRowSelectionOnClick
               onRowClick={(params) => navigate(`/products/edit/${params.id}`)}
-              // sx prop removed to prevent layout breaking
             />
         </Paper>
     </List>

@@ -12,10 +12,12 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save'; 
+import ImageSearchIcon from '@mui/icons-material/ImageSearch';
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useList, useResource } from "@refinedev/core"; 
+import { ProductImagePicker } from "../../components/ProductImagePicker"; // <-- IMPORT NEW COMPONENT
 
 // --- Copy Product Modal ---
 const CopyProductModal = ({ open, onClose, products, onSelectProduct }) => {
@@ -79,7 +81,7 @@ const TextFieldWithCopy = ({ control, errors, fieldName, label, required = false
     </Box>
 );
 
-// --- FIX: Added 'export' back ---
+
 export const ProductEdit = () => {
   const { id: productId } = useParams();
   const { resource } = useResource(); 
@@ -105,6 +107,7 @@ export const ProductEdit = () => {
   const [previewImage, setPreviewImage] = useState("");
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
   const [copyTargetField, setCopyTargetField] = useState(null); 
+  const [isImagePickerOpen, setIsImagePickerOpen] = useState(false); // <-- Added state for new modal
 
   const { data: productsData } = useList({ resource: "products" });
   const products = productsData?.data || [];
@@ -175,6 +178,18 @@ export const ProductEdit = () => {
     }
   };
 
+  // --- FIX: Updated handler for multi-select ---
+  const handleSelectImagesFromPicker = (urls) => {
+    if (!urls || urls.length === 0) return;
+    
+    const currentImages = watchedImages || []; // Get current images from useWatch
+    const newUrls = urls.filter(url => !currentImages.includes(url)); // Filter duplicates
+    
+    if (newUrls.length > 0) {
+        append(newUrls); // Append all new URLs at once
+    }
+  };
+
   const onDragEnd = (result) => {
     if (!result.destination) return;
     move(result.source.index, result.destination.index);
@@ -198,14 +213,13 @@ export const ProductEdit = () => {
           }
           isLoading={isFormLoading} 
           footerButtons={({ deleteButtonProps }) => { 
-            // --- FIX: Destructure onClick out of saveButtonProps ---
             const { onClick, ...restSaveButtonProps } = saveButtonProps;
 
             return (
                 <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ p: 2 }}>
                     <DeleteButton {...deleteButtonProps} variant="outlined" color="error" />
                     <Button 
-                        {...restSaveButtonProps} // Use the rest of the props
+                        {...restSaveButtonProps}
                         type="submit" 
                         form="product-edit-form"
                         variant="outlined"         
@@ -352,10 +366,20 @@ export const ProductEdit = () => {
                     )}
                     </Droppable>
                 </DragDropContext>
-                <Button variant="outlined" color="secondary" component="label" disabled={isUploading}>
-                    {isUploading ? "Uploading..." : "Upload Image"}
-                    <input type="file" hidden accept="image/*" onChange={handleImageUpload}/>
-                </Button>
+                <Stack direction="row" spacing={1}>
+                  <Button variant="outlined" color="secondary" component="label" disabled={isUploading}>
+                      {isUploading ? "Uploading..." : "Upload Image"}
+                      <input type="file" hidden accept="image/*" onChange={handleImageUpload}/>
+                  </Button>
+                  <Button 
+                      variant="outlined" 
+                      color="primary" 
+                      startIcon={<ImageSearchIcon />}
+                      onClick={() => setIsImagePickerOpen(true)}
+                  >
+                      Select from existing
+                  </Button>
+                </Stack>
             </Paper>
             </Box>
         )}
@@ -388,6 +412,12 @@ export const ProductEdit = () => {
         onClose={handleCloseCopyModal} 
         products={products.filter(p => p.id !== parseInt(productId))} 
         onSelectProduct={handleSelectProductToCopy} 
+      />
+
+      <ProductImagePicker
+        open={isImagePickerOpen}
+        onClose={() => setIsImagePickerOpen(false)}
+        onSelectImages={handleSelectImagesFromPicker} // Prop renamed to plural
       />
     </>
   );
