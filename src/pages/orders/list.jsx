@@ -209,10 +209,11 @@ export const OrderList = () => {
         <DataGrid
           {...dataGridProps}
           columns={columns}
-          autoHeight
+          // autoHeight // <-- FIX: Removed autoHeight
+          rowHeight={64} // <-- FIX: Added explicit rowHeight
           disableRowSelectionOnClick
           onRowClick={(params) => navigate(`/orders/show/${params.id}`)}
-          sx={{ '& .MuiDataGrid-cell': { py: '8px' } }}
+          // sx prop removed
         />
       </Paper>
     </List>

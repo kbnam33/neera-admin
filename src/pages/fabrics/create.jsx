@@ -1,7 +1,7 @@
 import { Create } from "@refinedev/mui";
 import { Box, TextField, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade } from "@mui/material";
-import { useForm } from "@refinedev/react-hook-form";
-import { useFieldArray, useWatch } from "react-hook-form";
+import { useForm } from "@refinedev/react-hook-form"; // <-- IMPORT CHANGED
+import { useWatch } from "react-hook-form"; // <-- Kept for useWatch
 import { supabaseClient } from "../../supabase";
 import { v4 as uuidv4 } from "uuid";
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -12,10 +12,23 @@ import { useState } from "react";
 export const FabricCreate = () => {
   const {
     saveButtonProps,
+    refineCore: { onFinish }, // Get onFinish from refineCore
     control,
     register,
     formState: { errors },
-  } = useForm();
+    setValue,
+    handleSubmit, // Get handleSubmit
+  } = useForm({
+    // Use Refine's useForm hook
+    refineCoreProps: {
+      action: "create",
+      resource: "fabrics",
+    },
+    defaultValues: {
+      name: "",
+      image_url: "", // Field name matches DB
+    },
+  });
 
   const [isUploading, setIsUploading] = useState(false);
   const [previewImage, setPreviewImage] = useState("");
@@ -23,8 +36,8 @@ export const FabricCreate = () => {
   const handleOpenPreview = (url) => setPreviewImage(url);
   const handleClosePreview = () => setPreviewImage("");
 
-  const { fields, append, remove } = useFieldArray({ control, name: "images" });
-  const images = useWatch({ control, name: "images" });
+  // Watch the single image_url field
+  const watchedImageUrl = useWatch({ control, name: "image_url" });
 
   const handleImageUpload = async (event) => {
     const file = event.target.files[0];
@@ -36,7 +49,7 @@ export const FabricCreate = () => {
     try {
       await supabaseClient.storage.from("fabric-images").upload(fileName, file);
       const { data: { publicUrl } } = supabaseClient.storage.from("fabric-images").getPublicUrl(fileName);
-      append(publicUrl);
+      setValue("image_url", publicUrl, { shouldDirty: true }); // Set the single image_url value
     } catch (error) {
       console.error("Error uploading image:", error);
       alert("Image upload failed. Please try again.");
@@ -46,14 +59,38 @@ export const FabricCreate = () => {
     }
   };
 
+  // FIX: Handle save manually to strip 'created_at' or 'id'
+  const handleSave = (values) => {
+    const { id, created_at, ...createPayload } = values;
+    onFinish?.(createPayload);
+  };
+
   return (
     <>
       <Create
-          saveButtonProps={{ ...saveButtonProps, children: "Save Fabric", variant: "outlined", color: "secondary", startIcon: <SaveIcon /> }}
           title={<Typography variant="h5">Create New Fabric</Typography>}
           breadcrumb={null}
+          // FIX: Use footerButtons to override default save button
+          footerButtons={() => {
+            // Destructure onClick *out* of saveButtonProps to prevent default action
+            const { onClick, ...restSaveButtonProps } = saveButtonProps;
+
+            return (
+              <Button
+                  {...restSaveButtonProps} // Spread props like 'disabled'
+                  type="submit"
+                  form="fabric-create-form" // Link to form ID
+                  variant="outlined"
+                  color="secondary"
+                  startIcon={<SaveIcon />}
+              >
+                  Save Fabric
+              </Button>
+            );
+          }}
       >
-        <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {/* FIX: Use a form tag with onSubmit and ID */}
+        <Box component="form" id="fabric-create-form" onSubmit={handleSubmit(handleSave)} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Paper sx={{ p: 3 }}>
               <Grid container spacing={3}>
                   <Grid item xs={12}>
@@ -64,29 +101,27 @@ export const FabricCreate = () => {
           </Paper>
 
           <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>Images</Typography>
-               <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>The first image in the list will be the main image.</Typography>
+              <Typography variant="h6" gutterBottom>Image</Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-                  {(images || []).map((imageUrl, index) => (
-                      <Box key={index} sx={(theme) => ({
+                  {watchedImageUrl && (
+                      <Box sx={(theme) => ({
                           position: 'relative', width: 100, height: 100,
                           border: `1px solid ${theme.palette.divider}`,
                           borderRadius: '8px', overflow: 'hidden',
                           '&:hover .preview-overlay': { opacity: 1 }
                       })}>
-                          <Box className="preview-overlay" onClick={() => handleOpenPreview(imageUrl)} sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', opacity: 0, transition: 'opacity 0.2s', cursor: 'pointer' }}>
+                          <Box className="preview-overlay" onClick={() => handleOpenPreview(watchedImageUrl)} sx={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', opacity: 0, transition: 'opacity 0.2s', cursor: 'pointer' }}>
                             <ZoomInIcon />
                           </Box>
-                          {index === 0 && ( <Typography sx={(theme) => ({ position: 'absolute', top: 0, left: 0, background: theme.palette.primary.main, color: theme.palette.primary.contrastText, padding: '2px 6px', fontSize: '0.7rem', borderBottomRightRadius: '4px' })}>Main</Typography> )}
-                          <img src={imageUrl} alt={`fabric-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          <IconButton size="small" onClick={() => remove(index)} sx={{ position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
+                          <img src={watchedImageUrl} alt="fabric" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          <IconButton size="small" onClick={() => setValue("image_url", "", { shouldDirty: true })} sx={{ position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(255, 255, 255, 0.8)' }}>
                               <DeleteIcon fontSize="small" />
                           </IconButton>
                       </Box>
-                  ))}
+                  )}
               </Box>
               <Button variant="outlined" color="secondary" component="label" disabled={isUploading}>
-                {isUploading ? "Uploading..." : "Upload Image"}
+                {isUploading ? "Uploading..." : (watchedImageUrl ? "Replace Image" : "Upload Image")}
                 <input type="file" hidden accept="image/*" onChange={handleImageUpload} />
               </Button>
           </Paper>

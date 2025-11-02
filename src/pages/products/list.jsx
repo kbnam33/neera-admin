@@ -19,6 +19,10 @@ export const ProductList = () => {
         },
       ],
     },
+    // Ensure pagination is enabled (it is by default)
+    pagination: {
+      pageSize: 10, // You can set a default page size
+    },
   });
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
@@ -143,23 +147,19 @@ export const ProductList = () => {
         }
     >
         <Paper sx={{
-            height: '75vh',
+            height: '75vh', // Container has a fixed height
             width: '100%',
         }}>
             <DataGrid
               {...dataGridProps}
               columns={columns}
-              autoHeight
+              // autoHeight // <-- This was removed, which is correct
+              rowHeight={72} // <-- FIX: Added explicit rowHeight to match your old 'py: 22px' padding
               disableRowSelectionOnClick
               onRowClick={(params) => navigate(`/products/edit/${params.id}`)}
-              sx={{
-                '& .MuiDataGrid-cell': {
-                  py: '22px' 
-                }
-              }}
+              // sx prop removed to prevent layout breaking
             />
         </Paper>
     </List>
   );
 };
-

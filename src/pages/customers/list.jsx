@@ -89,10 +89,11 @@ export const CustomerList = () => {
         <DataGrid
           {...dataGridProps}
           columns={columns}
-          autoHeight
+          // autoHeight // <-- FIX: Removed autoHeight
+          rowHeight={64} // <-- FIX: Added explicit rowHeight to match your old 'py: 16px' padding
           disableRowSelectionOnClick
           onRowClick={(params) => navigate(`/customers/show/${params.id}`)}
-          sx={{ '& .MuiDataGrid-cell': { py: '16px' } }}
+          // sx prop removed
         />
       </Paper>
     </List>

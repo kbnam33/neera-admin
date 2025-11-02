@@ -3,8 +3,8 @@ import {
     Box, TextField, Autocomplete, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade, Stack,
     Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText 
 } from "@mui/material";
-import { useForm } from "@refinedev/react-hook-form"; // Refine's hook for integration
-import { Controller, useFieldArray, useWatch } from "react-hook-form"; // Import Controller etc. from base library
+import { useForm } from "@refinedev/react-hook-form";
+import { Controller, useFieldArray, useWatch } from "react-hook-form";
 import { supabaseClient } from "../../supabase";
 import { v4 as uuidv4 } from "uuid";
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
@@ -79,7 +79,7 @@ const TextFieldWithCopy = ({ control, errors, fieldName, label, required = false
     </Box>
 );
 
-
+// --- FIX: Added 'export' back ---
 export const ProductEdit = () => {
   const { id: productId } = useParams();
   const { resource } = useResource(); 
@@ -126,7 +126,6 @@ export const ProductEdit = () => {
     const currentProductId = parseInt(productId, 10); 
     const productToCopy = products.find(p => p.id === selectedProductId);
     if (productToCopy && productToCopy.id !== currentProductId) {
-      // Use setValue to update the form state and mark it as dirty
       setValue(copyTargetField, productToCopy[copyTargetField] || "", { shouldDirty: true }); 
     }
     handleCloseCopyModal();
@@ -137,7 +136,6 @@ export const ProductEdit = () => {
 
   useEffect(() => {
     if (productData && !isDirty) { 
-        // Ensure all fields, especially new ones, are in the defaultValues
         const defaultValues = { 
             ...productData, 
             name: productData.name || "",
@@ -161,7 +159,9 @@ export const ProductEdit = () => {
      const file = event.target.files[0];
     if (!file || !productId) return;
     setIsUploading(true);
-    const fileName = `${productId}/${uuidv4()}-${file.name}`;
+
+    const fileName = `${productId}/${uuidv4()}-${file.name}`; 
+    
     try {
       await supabaseClient.storage.from("product-images").upload(fileName, file);
       const { data: { publicUrl } } = supabaseClient.storage.from("product-images").getPublicUrl(fileName);
@@ -180,14 +180,10 @@ export const ProductEdit = () => {
     move(result.source.index, result.destination.index);
   };
 
-  // *** THIS IS THE FIX ***
-  // This function takes all form data, removes 'id' and 'created_at',
-  // and then sends only the clean data to be saved.
   const handleSave = (values) => {
     const { id, created_at, ...updatePayload } = values; 
-    onFinish?.(updatePayload); // Pass the cleaned payload
+    onFinish?.(updatePayload);
   };
-  // *** END OF FIX ***
   
   return (
     <>
@@ -201,34 +197,33 @@ export const ProductEdit = () => {
             </Box>
           }
           isLoading={isFormLoading} 
-          // *** THIS IS THE FIX ***
-          // The footerButtons now correctly wire the "Save Changes" button
-          // to use the 'handleSubmit(handleSave)' function defined above.
-          footerButtons={({ deleteButtonProps }) => ( 
-            <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ p: 2 }}>
-                <DeleteButton {...deleteButtonProps} variant="outlined" color="error" />
-                <Button 
-                    {...saveButtonProps} // Use saveButtonProps from useForm
-                    type="submit" 
-                    form="product-edit-form" // This ID must match the form's ID
-                    variant="outlined"         
-                    color="secondary"          
-                    startIcon={<SaveIcon />}     
-                >
-                    Save Changes 
-                </Button> 
-            </Stack>
-          )}
+          footerButtons={({ deleteButtonProps }) => { 
+            // --- FIX: Destructure onClick out of saveButtonProps ---
+            const { onClick, ...restSaveButtonProps } = saveButtonProps;
+
+            return (
+                <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ p: 2 }}>
+                    <DeleteButton {...deleteButtonProps} variant="outlined" color="error" />
+                    <Button 
+                        {...restSaveButtonProps} // Use the rest of the props
+                        type="submit" 
+                        form="product-edit-form"
+                        variant="outlined"         
+                        color="secondary"          
+                        startIcon={<SaveIcon />}     
+                    >
+                        Save Changes 
+                    </Button> 
+                </Stack>
+            );
+          }}
       >
         {isFormLoading ? (
             <Typography>Loading product data...</Typography> 
         ) : (
-            // *** THIS IS THE FIX ***
-            // The <Box> is now a <form> with the matching ID and onSubmit handler
             <Box component="form" id="product-edit-form" onSubmit={handleSubmit(handleSave)} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Paper sx={{ p: 3 }}>
                 <Grid container spacing={3}>
-                    {/* --- Name --- */}
                     <Grid item xs={12}>
                         <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Name</Typography>
                        <Controller
@@ -250,7 +245,6 @@ export const ProductEdit = () => {
                         />
                   </Grid>
 
-                   {/* --- Description Fields --- */}
                    <Grid item xs={12}>
                      <TextFieldWithCopy control={control} errors={errors} fieldName="short_description" label="Short Description (under title)" rows={2} handleOpenCopyModal={handleOpenCopyModal} />
                   </Grid>
@@ -264,7 +258,6 @@ export const ProductEdit = () => {
                      <TextFieldWithCopy control={control} errors={errors} fieldName="shipping_returns" label="Shipping & Returns" rows={4} handleOpenCopyModal={handleOpenCopyModal} />
                   </Grid>
                  
-                  {/* --- Price --- */}
                   <Grid item xs={12} sm={6}>
                       <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Price (in ₹)</Typography>
                       <Controller
@@ -287,8 +280,7 @@ export const ProductEdit = () => {
                             )}
                         />
                   </Grid>
-                   {/* --- Fabric --- */}
-                  <Grid item xs={12} sm={6}>
+                   <Grid item xs={12} sm={6}>
                       <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Fabric</Typography>
                       <Controller
                           control={control} name="fabric_type" rules={{ required: "This field is required" }}
@@ -313,7 +305,6 @@ export const ProductEdit = () => {
           </Paper>
 
           <Paper sx={{ p: 3 }}>
-                 {/* ... Image upload and drag/drop section ... */}
                  <Typography variant="h6" gutterBottom>Images</Typography>
                 <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>Drag and drop images to reorder. The first image is the main image.</Typography>
                 <DragDropContext onDragEnd={onDragEnd}>
@@ -371,10 +362,9 @@ export const ProductEdit = () => {
       </Edit>
 
       {/* Image Preview Modal */}
-      <Modal /* ... */ 
+      <Modal 
         open={Boolean(previewImage)} 
         onClose={handleClosePreview}
-        // ... rest of modal props
          slots={{ backdrop: Backdrop }}
         slotProps={{
           backdrop: {

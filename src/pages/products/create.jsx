@@ -10,6 +10,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'; // Import copy icon
 import CloseIcon from '@mui/icons-material/Close';
+import SaveIcon from '@mui/icons-material/Save';
 import { useState } from "react";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useList } from "@refinedev/core";
@@ -39,13 +40,22 @@ const CopyProductModal = ({ open, onClose, products, onSelectProduct }) => {
 
 export const ProductCreate = () => {
   const theme = useTheme();
+  // --- FIX: Generate ONE UUID for the folder, once per component load ---
+  const [tempFolderId] = useState(uuidv4()); 
+
   const {
     saveButtonProps,
+    refineCore: { onFinish },
     control,
     register,
     formState: { errors },
-    setValue, // Import setValue from useForm
+    setValue,
+    handleSubmit,
   } = useForm({
+    refineCoreProps: {
+      action: "create",
+      resource: "products",
+    },
     defaultValues: {
       name: "",
       short_description: "",
@@ -61,7 +71,7 @@ export const ProductCreate = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [previewImage, setPreviewImage] = useState("");
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
-  const [copyTargetField, setCopyTargetField] = useState(null); // 'short_description', 'description', etc.
+  const [copyTargetField, setCopyTargetField] = useState(null); 
   
   const { data: productsData } = useList({ resource: "products" });
   const products = productsData?.data || [];
@@ -69,7 +79,6 @@ export const ProductCreate = () => {
   const handleOpenPreview = (url) => setPreviewImage(url);
   const handleClosePreview = () => setPreviewImage("");
 
-  // Function to open the modal and set which field we're copying to
   const handleOpenCopyModal = (fieldName) => {
     setCopyTargetField(fieldName);
     setIsCopyModalOpen(true);
@@ -79,7 +88,6 @@ export const ProductCreate = () => {
     setCopyTargetField(null);
   };
 
-  // Function to handle copying details from the selected product
   const handleSelectProductToCopy = (selectedProductId) => {
     if (!copyTargetField) return;
     const productToCopy = products.find(p => p.id === selectedProductId);
@@ -98,7 +106,9 @@ export const ProductCreate = () => {
     if (!file) return;
 
     setIsUploading(true);
-    const fileName = `${uuidv4()}-${file.name}`;
+    
+    // --- FIX: Use the stable tempFolderId for all uploads in this session ---
+    const fileName = `${tempFolderId}/${uuidv4()}-${file.name}`; 
     
     try {
       await supabaseClient.storage.from("product-images").upload(fileName, file);
@@ -149,14 +159,38 @@ export const ProductCreate = () => {
     </Box>
   );
 
+  // Handle save manually to strip 'created_at' or 'id'
+  const handleSave = (values) => {
+    const { id, created_at, ...createPayload } = values;
+    onFinish?.(createPayload);
+  };
+
   return (
     <>
       <Create 
-          saveButtonProps={{ ...saveButtonProps, children: "Save Product", variant: "outlined", color: "secondary" }}
           title={<Typography variant="h5">Create New Product</Typography>}
           breadcrumb={null}
+          // Use footerButtons to override default save button
+          footerButtons={() => {
+            // Destructure onClick *out* of saveButtonProps to prevent default action
+            const { onClick, ...restSaveButtonProps } = saveButtonProps;
+
+            return (
+              <Button
+                  {...restSaveButtonProps} // Spread props like 'disabled'
+                  type="submit"
+                  form="product-create-form" // Link to form ID
+                  variant="outlined"
+                  color="secondary"
+                  startIcon={<SaveIcon />}
+              >
+                  Save Product
+              </Button>
+            );
+          }}
       >
-        <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {/* Use a form tag with onSubmit and ID */}
+        <Box component="form" id="product-create-form" onSubmit={handleSubmit(handleSave)} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Paper sx={{ p: 3 }}>
               <Grid container spacing={3}>
                   <Grid item xs={12}>

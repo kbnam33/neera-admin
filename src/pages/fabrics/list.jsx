@@ -129,14 +129,11 @@ export const FabricList = () => {
             <DataGrid
               {...dataGridProps}
               columns={columns}
-              autoHeight
+              // autoHeight // <-- FIX: Removed autoHeight
+              rowHeight={72} // <-- FIX: Added explicit rowHeight to match your old 'py: 22px' padding
               disableRowSelectionOnClick
               onRowClick={(params) => navigate(`/fabrics/edit/${params.id}`)}
-              sx={{
-                '& .MuiDataGrid-cell': {
-                  py: '22px'
-                }
-              }}
+              // sx prop removed
             />
         </Paper>
     </List>
