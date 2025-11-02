@@ -68,8 +68,25 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
                 // Fetch all unorganized images from root
                 const rootImagesData = await fetchRootFiles('product-images');
 
+                // --- START OF CHANGE ---
+                // Create a Set of all images used by any product
+                const allUsedImages = new Set();
+                if (productsData) {
+                    productsData.forEach(product => {
+                        if (product.images && Array.isArray(product.images)) {
+                            product.images.forEach(url => allUsedImages.add(url));
+                        }
+                    });
+                }
+
+                // Filter root images to only include those NOT in the allUsedImages set
+                const unusedRootImagesData = rootImagesData.filter(
+                    file => !allUsedImages.has(file.url)
+                );
+                // --- END OF CHANGE ---
+
                 setProducts(productsData.filter(p => p.images && p.images.length > 0));
-                setRootImages(rootImagesData);
+                setRootImages(unusedRootImagesData); // <-- Use the new filtered data
 
             } catch (error) {
                 console.error("Error fetching data for picker:", error);
@@ -130,7 +147,7 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
                         </IconButton>
                     )}
                     <Typography variant="h6">
-                        {view === 'list' ? "Select from Existing" : `Select from "${selectedItem.name}"`}
+                        {view === 'list' ? "Select from Existing" : `Select from "${selectedItem?.name || ''}"`}
                     </Typography>
                 </Box>
                 {/* --- Show count when in image view --- */}
