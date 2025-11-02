@@ -3,7 +3,8 @@ import {
     Box, TextField, Autocomplete, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade, useTheme, 
     Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, Stack
 } from "@mui/material";
-import { useForm, Controller, useFieldArray, useWatch } from "react-hook-form";
+import { useForm } from "@refinedev/react-hook-form"; // <-- FIX: This is the correct hook
+import { Controller, useFieldArray, useWatch } from "react-hook-form"; // <-- FIX: These come from the base library
 import { supabaseClient } from "../../supabase";
 import { v4 as uuidv4 } from "uuid";
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -45,17 +46,21 @@ export const ProductCreate = () => {
   const [tempFolderId] = useState(uuidv4()); 
 
   const {
-    saveButtonProps,
-    refineCore: { onFinish },
+    saveButtonProps, 
+    refineCore: { onFinish }, // <-- FIX: Get onFinish from refineCore
     control,
     register,
     formState: { errors },
     setValue,
     handleSubmit,
-  } = useForm({
+  } = useForm({ // <-- FIX: This is now the hook from @refinedev/react-hook-form
     refineCoreProps: {
       action: "create",
       resource: "products",
+      onFinish: (values) => {
+        const { id, created_at, ...createPayload } = values;
+        onFinish?.(createPayload); // <-- This onFinish is now correctly scoped
+      },
     },
     defaultValues: {
       name: "",
@@ -124,15 +129,14 @@ export const ProductCreate = () => {
     }
   };
 
-  // --- FIX: Updated handler for multi-select ---
   const handleSelectImagesFromPicker = (urls) => {
     if (!urls || urls.length === 0) return;
     
-    const currentImages = images || []; // Get current images from useWatch
-    const newUrls = urls.filter(url => !currentImages.includes(url)); // Filter duplicates
+    const currentImages = images || [];
+    const newUrls = urls.filter(url => !currentImages.includes(url));
     
     if (newUrls.length > 0) {
-        append(newUrls); // Append all new URLs at once
+        append(newUrls);
     }
   };
 
@@ -171,24 +175,16 @@ export const ProductCreate = () => {
     </Box>
   );
 
-  const handleSave = (values) => {
-    const { id, created_at, ...createPayload } = values;
-    onFinish?.(createPayload);
-  };
-
   return (
     <>
       <Create 
           title={<Typography variant="h5">Create New Product</Typography>}
           breadcrumb={null}
-          footerButtons={() => {
-            const { onClick, ...restSaveButtonProps } = saveButtonProps;
-
+          saveButtonProps={saveButtonProps} // <-- FIX: Pass saveButtonProps to Create
+          footerButtons={({ saveButtonProps }) => {
             return (
               <Button
-                  {...restSaveButtonProps}
-                  type="submit"
-                  form="product-create-form"
+                  {...saveButtonProps} 
                   variant="outlined"
                   color="secondary"
                   startIcon={<SaveIcon />}
@@ -198,7 +194,8 @@ export const ProductCreate = () => {
             );
           }}
       >
-        <Box component="form" id="product-create-form" onSubmit={handleSubmit(handleSave)} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {/* FIX: Removed onSubmit prop. The saveButtonProps onClick will trigger handleSubmit. */}
+        <Box component="form" id="product-create-form" sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Paper sx={{ p: 3 }}>
               <Grid container spacing={3}>
                   <Grid item xs={12}>
@@ -227,15 +224,30 @@ export const ProductCreate = () => {
                       <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Fabric</Typography>
                       <Controller
                           control={control} name="fabric_type" rules={{ required: "This field is required" }}
-                          render={({ field }) => (
-                              <Autocomplete
-                                  {...autocompleteProps}
-                                  getOptionLabel={(option) => option.name || ""}
-                                  isOptionEqualToValue={(option, value) => option.name === value}
-                                  onChange={(_, value) => field.onChange(value?.name || "")}
-                                  renderInput={(params) => ( <TextField {...params} margin="none" variant="outlined" error={!!errors.fabric_type} helperText={errors.fabric_type?.message} /> )}
-                              />
-                          )}
+                          render={({ field }) => {
+                              const options = autocompleteProps.options || [];
+                              const selectedOption = options.find(option => option.name === field.value) || null;
+                              
+                              return (
+                                <Autocomplete
+                                    {...autocompleteProps}
+                                    options={options} 
+                                    value={selectedOption} 
+                                    getOptionLabel={(option) => option.name || ""}
+                                    isOptionEqualToValue={(option, value) => option.name === value?.name} 
+                                    onChange={(_, newValue) => field.onChange(newValue?.name || "")} 
+                                    renderInput={(params) => ( 
+                                        <TextField 
+                                            {...params} 
+                                            margin="none" 
+                                            variant="outlined" 
+                                            error={!!errors.fabric_type} 
+                                            helperText={errors.fabric_type?.message} 
+                                        /> 
+                                    )}
+                                />
+                              );
+                          }}
                       />
                   </Grid>
               </Grid>
