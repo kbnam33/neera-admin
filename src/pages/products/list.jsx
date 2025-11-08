@@ -8,19 +8,17 @@ import { Paper, Typography, Menu, MenuItem, IconButton, Stack, Box } from "@mui/
 import { MoreVert, Edit, Delete, Add } from "@mui/icons-material";
 
 export const ProductList = () => {
-  // --- FIX: Removed setFilters and all filter logic ---
+  // --- FIX: Updated sorter field and removed pagination limit ---
   const { dataGridProps } = useDataGrid({
     sorters: {
       initial: [
         {
-          field: "id",
+          field: "created_at", // <-- FIX: Changed from 'id'
           order: "desc",
         },
       ],
     },
-    pagination: {
-      pageSize: 10,
-    },
+    // --- FIX: Removed pagination block to show all products ---
   });
 
   const navigate = useNavigate();
@@ -145,7 +143,7 @@ export const ProductList = () => {
           </CreateButton>
         }
     >
-        {/* --- FIX: Search Bar Paper component removed --- */}
+        {/* --- Search Bar Paper component removed --- */}
 
         {/* --- Data Grid --- */}
         <Paper sx={{

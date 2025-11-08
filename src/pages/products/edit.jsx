@@ -29,7 +29,8 @@ const CopyProductModal = ({ open, onClose, products, onSelectProduct }) => {
                     <CloseIcon />
                 </IconButton>
             </DialogTitle>
-            <DialogContent dividers>
+            {/* FIX: Added sx prop to make DialogContent scrollable */}
+            <DialogContent dividers sx={{ maxHeight: '60vh' }}>
                 <List dense>
                     {products?.map((product) => (
                         <ListItemButton key={product.id} onClick={() => onSelectProduct(product.id)}>
@@ -88,7 +89,8 @@ export const ProductEdit = () => {
 
   const {
     saveButtonProps, 
-    refineCore: { queryResult, onFinish }, 
+    queryResult, 
+    refineCore: { onFinish }, // <-- FIX: Use refineCore.onFinish here
     control,
     formState: { errors, isDirty }, 
     reset, 
@@ -100,6 +102,10 @@ export const ProductEdit = () => {
             action: "edit", 
             id: productId,
             resource: resource?.name, 
+            onFinish: (values) => {
+              const { id, created_at, ...updatePayload } = values; 
+              onFinish?.(updatePayload);
+            },
        },
   });
 
@@ -178,15 +184,14 @@ export const ProductEdit = () => {
     }
   };
 
-  // --- FIX: Updated handler for multi-select ---
   const handleSelectImagesFromPicker = (urls) => {
     if (!urls || urls.length === 0) return;
     
-    const currentImages = watchedImages || []; // Get current images from useWatch
-    const newUrls = urls.filter(url => !currentImages.includes(url)); // Filter duplicates
+    const currentImages = watchedImages || []; 
+    const newUrls = urls.filter(url => !currentImages.includes(url)); 
     
     if (newUrls.length > 0) {
-        append(newUrls); // Append all new URLs at once
+        append(newUrls);
     }
   };
 
@@ -194,17 +199,13 @@ export const ProductEdit = () => {
     if (!result.destination) return;
     move(result.source.index, result.destination.index);
   };
-
-  const handleSave = (values) => {
-    const { id, created_at, ...updatePayload } = values; 
-    onFinish?.(updatePayload);
-  };
   
   return (
     <>
       <Edit 
           title={<Typography variant="h5">Edit Product</Typography>}
           breadcrumb={null}
+          saveButtonProps={saveButtonProps} // <-- FIX: Pass saveButtonProps to Edit
           headerButtons={
             <Box>
               <ListButton size="small" sx={{ mr: 1 }} />
@@ -212,16 +213,12 @@ export const ProductEdit = () => {
             </Box>
           }
           isLoading={isFormLoading} 
-          footerButtons={({ deleteButtonProps }) => { 
-            const { onClick, ...restSaveButtonProps } = saveButtonProps;
-
+          footerButtons={({ deleteButtonProps, saveButtonProps }) => { 
             return (
                 <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ p: 2 }}>
                     <DeleteButton {...deleteButtonProps} variant="outlined" color="error" />
                     <Button 
-                        {...restSaveButtonProps}
-                        type="submit" 
-                        form="product-edit-form"
+                        {...saveButtonProps}
                         variant="outlined"         
                         color="secondary"          
                         startIcon={<SaveIcon />}     
@@ -235,7 +232,7 @@ export const ProductEdit = () => {
         {isFormLoading ? (
             <Typography>Loading product data...</Typography> 
         ) : (
-            <Box component="form" id="product-edit-form" onSubmit={handleSubmit(handleSave)} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box component="form" id="product-edit-form" sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Paper sx={{ p: 3 }}>
                 <Grid container spacing={3}>
                     <Grid item xs={12}>
@@ -272,7 +269,9 @@ export const ProductEdit = () => {
                      <TextFieldWithCopy control={control} errors={errors} fieldName="shipping_returns" label="Shipping & Returns" rows={4} handleOpenCopyModal={handleOpenCopyModal} />
                   </Grid>
                  
+                  {/* FIX: Added copy icon wrapper to Price field */}
                   <Grid item xs={12} sm={6}>
+                    <Box sx={{ position: 'relative' }}>
                       <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Price (in ₹)</Typography>
                       <Controller
                             name="price"
@@ -293,7 +292,22 @@ export const ProductEdit = () => {
                                 />
                             )}
                         />
+                      <IconButton 
+                          size="small" 
+                          onClick={() => handleOpenCopyModal("price")}
+                          sx={{ 
+                            position: 'absolute', 
+                            top: 28,
+                            right: 8, 
+                            color: 'text.secondary' 
+                          }}
+                          title={`Copy Price from another product`}
+                        >
+                          <ContentCopyIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
                   </Grid>
+
                    <Grid item xs={12} sm={6}>
                       <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Fabric</Typography>
                       <Controller
