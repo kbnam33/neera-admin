@@ -4,9 +4,10 @@ import {
 import { useDataGrid, List, CreateButton, DeleteButton } from "@refinedev/mui";
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Paper, Typography, Menu, MenuItem, IconButton, Stack, Box, FormControl, InputLabel, Select } from "@mui/material";
-import { MoreVert, Edit, Delete, Add, ArrowUpward, ArrowDownward } from "@mui/icons-material";
+import { Paper, Typography, Menu, MenuItem, IconButton, Stack, Box, FormControl, InputLabel, Select, Button } from "@mui/material";
+import { MoreVert, Edit, Delete, Add } from "@mui/icons-material";
 import { supabaseAdminClient } from "../../supabase";
+import { ProductReorderDialog } from "../../components/ProductReorderDialog";
 
 export const ProductList = () => {
   const { dataGridProps, setSorters, tableQueryResult } = useDataGrid({
@@ -27,6 +28,7 @@ export const ProductList = () => {
   const open = Boolean(anchorEl);
   const [hasCustomOrder, setHasCustomOrder] = useState(false);
   const [orderMode, setOrderMode] = useState("created_desc"); // "custom" | "created_desc" | "name_asc"
+  const [isReorderOpen, setIsReorderOpen] = useState(false);
 
   // Detect if `sort_order` column exists to enable custom ordering
   useEffect(() => {
@@ -86,72 +88,6 @@ export const ProductList = () => {
 
   const columns = useMemo(
     () => [
-      ...(hasCustomOrder && orderMode === "custom"
-        ? [
-            {
-              field: "order_controls",
-              headerName: "Order",
-              minWidth: 120,
-              sortable: false,
-              filterable: false,
-              disableColumnMenu: true,
-              renderCell: (params) => {
-                const rows = tableQueryResult?.data?.data || dataGridProps?.rows || [];
-                const index = rows.findIndex((r) => r.id === params.row.id);
-                const canMoveUp = index > 0;
-                const canMoveDown = index >= 0 && index < rows.length - 1;
-
-                const swapWith = async (targetIndex) => {
-                  const current = rows[index];
-                  const target = rows[targetIndex];
-                  if (!current || !target) return;
-                  const currentOrder = current.sort_order ?? 0;
-                  const targetOrder = target.sort_order ?? 0;
-                  // Swap sort_order values
-                  await Promise.all([
-                    supabaseAdminClient
-                      .from("products")
-                      .update({ sort_order: targetOrder })
-                      .eq("id", current.id),
-                    supabaseAdminClient
-                      .from("products")
-                      .update({ sort_order: currentOrder })
-                      .eq("id", target.id),
-                  ]);
-                  // Refetch to reflect updates
-                  await tableQueryResult?.refetch?.();
-                };
-
-                return (
-                  <Stack direction="row" spacing={1}>
-                    <IconButton
-                      size="small"
-                      disabled={!canMoveUp}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (canMoveUp) swapWith(index - 1);
-                      }}
-                      aria-label="Move up"
-                    >
-                      <ArrowUpward fontSize="inherit" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      disabled={!canMoveDown}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (canMoveDown) swapWith(index + 1);
-                      }}
-                      aria-label="Move down"
-                    >
-                      <ArrowDownward fontSize="inherit" />
-                    </IconButton>
-                  </Stack>
-                );
-              },
-            },
-          ]
-        : []),
       { field: "id", headerName: "ID", minWidth: 50, align: "left", headerAlign: "left" },
       {
         field: "name",
@@ -263,6 +199,11 @@ export const ProductList = () => {
                 </Select>
               </FormControl>
             )}
+            {hasCustomOrder && orderMode === "custom" && (
+              <Button variant="contained" color="primary" onClick={() => setIsReorderOpen(true)}>
+                Reorder
+              </Button>
+            )}
             <CreateButton
               variant="outlined"
               color="secondary"
@@ -288,6 +229,17 @@ export const ProductList = () => {
               onRowClick={(params) => navigate(`/products/edit/${params.id}`)}
             />
         </Paper>
+        {hasCustomOrder && (
+          <ProductReorderDialog
+            open={isReorderOpen}
+            onClose={async (changed) => {
+              setIsReorderOpen(false);
+              if (changed) {
+                await tableQueryResult?.refetch?.();
+              }
+            }}
+          />
+        )}
     </List>
   );
 };

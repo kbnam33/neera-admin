@@ -20,17 +20,29 @@ import { ProductImagePicker } from "../../components/ProductImagePicker";
 
 // --- Copy Product Modal ---
 const CopyProductModal = ({ open, onClose, products, onSelectProduct }) => {
+    const [query, setQuery] = useState("");
+    const filtered = (products || []).filter((p) =>
+        p.name?.toLowerCase().includes(query.toLowerCase())
+    );
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
             <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 Copy Content From...
                 <IconButton onClick={onClose} size="small">
                     <CloseIcon />
                 </IconButton>
             </DialogTitle>
-            <DialogContent dividers>
+            <DialogContent dividers sx={{ maxHeight: '70vh' }}>
+                <TextField
+                    fullWidth
+                    placeholder="Search products…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    sx={{ mb: 2 }}
+                    size="small"
+                />
                 <List dense>
-                    {products?.map((product) => (
+                    {filtered?.map((product) => (
                         <ListItemButton key={product.id} onClick={() => onSelectProduct(product.id)}>
                             <ListItemText primary={product.name} />
                         </ListItemButton>
@@ -93,7 +105,12 @@ export const ProductCreate = () => {
   const [copyTargetField, setCopyTargetField] = useState(null); 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   
-  const { data: productsData } = useList({ resource: "products" });
+  const { data: productsData } = useList({ 
+    resource: "products",
+    pagination: { mode: "off" },
+    sorters: [{ field: "name", order: "asc" }],
+    meta: { select: "id,name" }
+  });
   const products = productsData?.data || [];
 
   const handleOpenPreview = (url) => setPreviewImage(url);
