@@ -5,7 +5,7 @@ import {
 } from "@mui/material";
 import { useForm } from "@refinedev/react-hook-form"; // <-- FIX: This is the correct hook
 import { Controller, useFieldArray, useWatch } from "react-hook-form"; // <-- FIX: These come from the base library
-import { supabaseClient } from "../../supabase";
+import { supabaseClient, supabaseAdminClient } from "../../supabase";
 import { v4 as uuidv4 } from "uuid";
 import DeleteIcon from '@mui/icons-material/Delete';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
@@ -57,9 +57,22 @@ export const ProductCreate = () => {
     refineCoreProps: {
       action: "create",
       resource: "products",
-      onFinish: (values) => {
+      onFinish: async (values) => {
         const { id, created_at, ...createPayload } = values;
-        onFinish?.(createPayload); // <-- This onFinish is now correctly scoped
+        // Try to set a default sort_order to append at the end
+        try {
+          const { data, error } = await supabaseAdminClient
+            .from("products")
+            .select("sort_order")
+            .order("sort_order", { ascending: false })
+            .limit(1);
+          if (!error && Array.isArray(data) && data.length > 0 && typeof data[0].sort_order === "number") {
+            createPayload.sort_order = data[0].sort_order + 1;
+          }
+        } catch {
+          // ignore if column doesn't exist
+        }
+        onFinish?.(createPayload);
       },
     },
     defaultValues: {
