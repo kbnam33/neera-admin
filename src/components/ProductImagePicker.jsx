@@ -11,12 +11,14 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'; // Added for sele
 import { useState, useEffect, useMemo } from "react";
 
 // Helper function to list all files from the root of a bucket
-const fetchRootFiles = async (bucketName) => {
-    const { data, error } = await supabaseClient.storage.from(bucketName).list(null, {
-        limit: 100,
-        offset: 0,
-        sortBy: { column: 'name', order: 'asc' },
-    });
+const fetchRootFiles = async (bucketName, { limit = 100, offset = 0 } = {}) => {
+    const { data, error } = await supabaseClient.storage
+        .from(bucketName)
+        .list(null, {
+            limit,
+            offset,
+            sortBy: { column: 'name', order: 'asc' },
+        });
 
     if (error) {
         console.error(`Error listing root files from ${bucketName}:`, error);
@@ -36,6 +38,8 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
     const theme = useTheme();
     const [products, setProducts] = useState([]);
     const [rootImages, setRootImages] = useState([]);
+    const [rootOffset, setRootOffset] = useState(0);
+    const [hasMoreRoot, setHasMoreRoot] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
     const [filter, setFilter] = useState("");
     const [view, setView] = useState('list'); // 'list' or 'images'
@@ -44,6 +48,10 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
     // --- New state for multi-selection ---
     const [selectedUrls, setSelectedUrls] = useState([]);
 
+    // --- Windowing state for image grid ---
+    const PAGE_SIZE = 60;
+    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
     useEffect(() => {
         if (!open) {
             // Reset state when modal is closed
@@ -51,6 +59,9 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
             setSelectedItem(null);
             setFilter("");
             setSelectedUrls([]); // Clear selection
+            setVisibleCount(PAGE_SIZE);
+            setRootOffset(0);
+            setHasMoreRoot(true);
             return;
         }
 
@@ -65,8 +76,8 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
                 
                 if (productsError) throw productsError;
                 
-                // Fetch all unorganized images from root
-                const rootImagesData = await fetchRootFiles('product-images');
+                // Fetch first page of unorganized images from root
+                const initialRoot = await fetchRootFiles('product-images', { limit: 100, offset: 0 });
 
                 // --- START OF CHANGE ---
                 // Create a Set of all images used by any product
@@ -80,13 +91,15 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
                 }
 
                 // Filter root images to only include those NOT in the allUsedImages set
-                const unusedRootImagesData = rootImagesData.filter(
+                const unusedRootImagesData = initialRoot.filter(
                     file => !allUsedImages.has(file.url)
                 );
                 // --- END OF CHANGE ---
 
                 setProducts(productsData.filter(p => p.images && p.images.length > 0));
                 setRootImages(unusedRootImagesData); // <-- Use the new filtered data
+                setRootOffset(unusedRootImagesData.length);
+                setHasMoreRoot(initialRoot.length >= 100);
 
             } catch (error) {
                 console.error("Error fetching data for picker:", error);
@@ -98,6 +111,13 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
 
         fetchData();
     }, [open]);
+
+    // When switching to images view or changing selected item, reset window
+    useEffect(() => {
+        if (view === 'images') {
+            setVisibleCount(PAGE_SIZE);
+        }
+    }, [view, selectedItem]);
 
     const filteredProducts = useMemo(() => {
         return products.filter(p => 
@@ -137,6 +157,45 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
         onClose();
     };
 
+    const maybeLoadMoreRoot = async () => {
+        if (selectedItem?.id !== 'root') return;
+        if (!hasMoreRoot) return;
+        // If we've revealed more than we have, fetch next page
+        if (visibleCount > rootImages.length - 20) {
+            const next = await fetchRootFiles('product-images', { limit: 100, offset: rootOffset });
+
+            // Exclude images already used by products
+            // Build a quick lookup of all product images (existing state)
+            const allProductImages = new Set();
+            products.forEach(product => {
+                if (product.images && Array.isArray(product.images)) {
+                    product.images.forEach(url => allProductImages.add(url));
+                }
+            });
+
+            const filteredNext = next.filter(file => !allProductImages.has(file.url));
+
+            if (filteredNext.length > 0) {
+                setRootImages(prev => [...prev, ...filteredNext]);
+                setRootOffset(prev => prev + next.length);
+                setSelectedItem(prev => prev?.id === 'root' ? { ...prev, images: [...prev.images, ...filteredNext] } : prev);
+            }
+            if (next.length < 100) {
+                setHasMoreRoot(false);
+            }
+        }
+    };
+
+    const handleScroll = async (event) => {
+        const target = event.currentTarget;
+        const threshold = 200; // px from bottom
+        if (target.scrollHeight - target.scrollTop - target.clientHeight < threshold) {
+            // reveal next window
+            setVisibleCount(prev => prev + PAGE_SIZE);
+            await maybeLoadMoreRoot();
+        }
+    };
+
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
             <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -161,7 +220,7 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
                 </IconButton>
             </DialogTitle>
 
-            <DialogContent dividers sx={{ minHeight: '60vh', bgcolor: 'background.default' }}>
+            <DialogContent dividers sx={{ minHeight: '60vh', bgcolor: 'background.default' }} onScroll={handleScroll}>
                 {isLoading ? (
                     <Typography>Loading...</Typography>
                 ) : (
@@ -212,7 +271,7 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
                         {/* --- View 2: Image Grid --- */}
                         {view === 'images' && selectedItem && (
                             <Grid container spacing={1.5}>
-                                {selectedItem.images.map((img, index) => {
+                                {selectedItem.images.slice(0, visibleCount).map((img, index) => {
                                     const imgUrl = typeof img === 'string' ? img : img.url;
                                     const imgName = typeof img === 'string' ? `Image ${index+1}` : img.name;
                                     const isSelected = selectedUrls.includes(imgUrl);
@@ -236,6 +295,8 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
                                         >
                                             <img 
                                                 src={imgUrl} 
+                                                loading="lazy"
+                                                decoding="async"
                                                 alt={imgName}
                                                 style={{ 
                                                     position: 'absolute', 
