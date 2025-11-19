@@ -6,6 +6,7 @@ import {
 import { useForm } from "@refinedev/react-hook-form"; // <-- FIX: This is the correct hook
 import { Controller, useFieldArray, useWatch } from "react-hook-form"; // <-- FIX: These come from the base library
 import { supabaseClient, supabaseAdminClient } from "../../supabase";
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import { v4 as uuidv4 } from "uuid";
 import DeleteIcon from '@mui/icons-material/Delete';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
@@ -65,6 +66,7 @@ export const ProductCreate = () => {
     formState: { errors },
     setValue,
     handleSubmit,
+    watch,
   } = useForm({ // <-- FIX: This is now the hook from @refinedev/react-hook-form
     refineCoreProps: {
       action: "create",
@@ -137,6 +139,78 @@ export const ProductCreate = () => {
   const { fields, append, remove, move } = useFieldArray({ control, name: "images" });
   const images = useWatch({ control, name: "images" });
   const { autocompleteProps } = useAutocomplete({ resource: "fabrics" });
+
+  const isBlank = (v) => !v || String(v).trim() === "";
+
+  const applyFabricDefaultsIfBlank = async (fabricOption) => {
+    if (!fabricOption) return;
+    try {
+      // Prefer fetching by id if available
+      const selector = fabricOption?.id != null ? { key: "id", value: fabricOption.id } : { key: "name", value: fabricOption?.name };
+      if (!selector.value) return;
+
+      let query = supabaseAdminClient
+        .from("fabrics")
+        .select("description, care_instructions, shipping_returns, default_price")
+        .limit(1);
+      query = selector.key === "id" ? query.eq("id", selector.value) : query.eq("name", selector.value);
+
+      const { data, error } = await query.single();
+      if (error || !data) return;
+
+      const currentDescription = watch("description");
+      const currentCare = watch("care_instructions");
+      const currentShipping = watch("shipping_returns");
+      const currentPrice = watch("price");
+
+      if (isBlank(currentDescription) && data.description) {
+        setValue("description", data.description, { shouldDirty: true });
+      }
+      if (isBlank(currentCare) && data.care_instructions) {
+        setValue("care_instructions", data.care_instructions, { shouldDirty: true });
+      }
+      if (isBlank(currentShipping) && data.shipping_returns) {
+        setValue("shipping_returns", data.shipping_returns, { shouldDirty: true });
+      }
+      if ((currentPrice == null || currentPrice === '') && typeof data.default_price === "number") {
+        setValue("price", data.default_price, { shouldDirty: true });
+      }
+    } catch {/* noop */}
+  };
+
+  const applyFabricDefaultsForce = async () => {
+    try {
+      const options = autocompleteProps.options || [];
+      const currentName = watch("fabric_type");
+      const selected = options.find(o => o.name === currentName);
+      if (!selected) return;
+
+      const selector = selected?.id != null ? { key: "id", value: selected.id } : { key: "name", value: selected?.name };
+      if (!selector.value) return;
+
+      let query = supabaseAdminClient
+        .from("fabrics")
+        .select("description, care_instructions, shipping_returns, default_price")
+        .limit(1);
+      query = selector.key === "id" ? query.eq("id", selector.value) : query.eq("name", selector.value);
+
+      const { data, error } = await query.single();
+      if (error || !data) return;
+
+      if (data.description != null) {
+        setValue("description", data.description, { shouldDirty: true });
+      }
+      if (data.care_instructions != null) {
+        setValue("care_instructions", data.care_instructions, { shouldDirty: true });
+      }
+      if (data.shipping_returns != null) {
+        setValue("shipping_returns", data.shipping_returns, { shouldDirty: true });
+      }
+      if (typeof data.default_price === "number") {
+        setValue("price", data.default_price, { shouldDirty: true });
+      }
+    } catch {/* noop */}
+  };
   
   const handleImageUpload = async (event) => {
     const file = event.target.files[0];
@@ -166,7 +240,7 @@ export const ProductCreate = () => {
     const newUrls = urls.filter(url => !currentImages.includes(url));
     
     if (newUrls.length > 0) {
-        append(newUrls);
+        newUrls.forEach((u) => append(u));
     }
   };
 
@@ -237,7 +311,21 @@ export const ProductCreate = () => {
                      <TextFieldWithCopy fieldName="short_description" label="Short Description (under title)" rows={2} />
                   </Grid>
                   <Grid item xs={12}>
-                      <TextFieldWithCopy fieldName="description" label="Details & Craftsmanship" rows={4} />
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                        <Typography variant="body2" fontWeight={600} color="text.secondary">Details & Craftsmanship</Typography>
+                        <Button 
+                          type="button"
+                          size="small" 
+                          startIcon={<AutoFixHighIcon />} 
+                          variant="outlined" 
+                          onClick={applyFabricDefaultsForce}
+                          disabled={!watch("fabric_type")}
+                          title="Apply defaults from selected fabric to product details"
+                        >
+                          Apply Fabric Defaults
+                        </Button>
+                      </Stack>
+                      <TextFieldWithCopy fieldName="description" label="" rows={4} />
                   </Grid>
                   <Grid item xs={12}>
                       <TextFieldWithCopy fieldName="care_instructions" label="Care Instructions" rows={4} />
@@ -265,7 +353,10 @@ export const ProductCreate = () => {
                                     value={selectedOption} 
                                     getOptionLabel={(option) => option.name || ""}
                                     isOptionEqualToValue={(option, value) => option.name === value?.name} 
-                                    onChange={(_, newValue) => field.onChange(newValue?.name || "")} 
+                                    onChange={async (_, newValue) => {
+                                        field.onChange(newValue?.name || "");
+                                        await applyFabricDefaultsIfBlank(newValue || null);
+                                    }} 
                                     renderInput={(params) => ( 
                                         <TextField 
                                             {...params} 

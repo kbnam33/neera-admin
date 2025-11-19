@@ -5,7 +5,7 @@ import {
 } from "@mui/material";
 import { useForm } from "@refinedev/react-hook-form";
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
-import { supabaseClient } from "../../supabase";
+import { supabaseClient, supabaseAdminClient } from "../../supabase";
 import { v4 as uuidv4 } from "uuid";
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -13,6 +13,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save'; 
 import ImageSearchIcon from '@mui/icons-material/ImageSearch';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
@@ -176,9 +177,89 @@ export const ProductEdit = () => {
     }
   }, [productData, reset, isDirty]); 
 
-  const { fields, append, remove, move } = useFieldArray({ control, name: "images" });
+  // Field array for images
+  const { fields, append, remove, move, replace } = useFieldArray({ control, name: "images" });
   const watchedImages = useWatch({ control, name: "images" }); 
+
+  // Keep field array in sync with loaded product images
+  useEffect(() => {
+    if (Array.isArray(productData?.images)) {
+      replace(productData.images);
+    }
+  }, [productData?.images, replace]);
+ 
   const { autocompleteProps } = useAutocomplete({ resource: "fabrics" });
+
+  const isBlank = (v) => !v || String(v).trim() === "";
+
+  const applyFabricDefaultsIfBlank = async (fabricOption) => {
+    if (!fabricOption) return;
+    try {
+      const selector = fabricOption?.id != null ? { key: "id", value: fabricOption.id } : { key: "name", value: fabricOption?.name };
+      if (!selector.value) return;
+
+      let query = supabaseAdminClient
+        .from("fabrics")
+        .select("description, care_instructions, shipping_returns, default_price")
+        .limit(1);
+      query = selector.key === "id" ? query.eq("id", selector.value) : query.eq("name", selector.value);
+
+      const { data, error } = await query.single();
+      if (error || !data) return;
+
+      const currentDescription = watch("description");
+      const currentCare = watch("care_instructions");
+      const currentShipping = watch("shipping_returns");
+      const currentPrice = watch("price");
+
+      if (isBlank(currentDescription) && data.description) {
+        setValue("description", data.description, { shouldDirty: true });
+      }
+      if (isBlank(currentCare) && data.care_instructions) {
+        setValue("care_instructions", data.care_instructions, { shouldDirty: true });
+      }
+      if (isBlank(currentShipping) && data.shipping_returns) {
+        setValue("shipping_returns", data.shipping_returns, { shouldDirty: true });
+      }
+      if ((currentPrice == null || currentPrice === '') && typeof data.default_price === "number") {
+        setValue("price", data.default_price, { shouldDirty: true });
+      }
+    } catch {/* noop */}
+  };
+
+  const applyFabricDefaultsForce = async () => {
+    try {
+      const options = autocompleteProps.options || [];
+      const currentName = watch("fabric_type");
+      const selected = options.find(o => o.name === currentName);
+      if (!selected) return;
+
+      const selector = selected?.id != null ? { key: "id", value: selected.id } : { key: "name", value: selected?.name };
+      if (!selector.value) return;
+
+      let query = supabaseAdminClient
+        .from("fabrics")
+        .select("description, care_instructions, shipping_returns, default_price")
+        .limit(1);
+      query = selector.key === "id" ? query.eq("id", selector.value) : query.eq("name", selector.value);
+
+      const { data, error } = await query.single();
+      if (error || !data) return;
+
+      if (data.description != null) {
+        setValue("description", data.description, { shouldDirty: true });
+      }
+      if (data.care_instructions != null) {
+        setValue("care_instructions", data.care_instructions, { shouldDirty: true });
+      }
+      if (data.shipping_returns != null) {
+        setValue("shipping_returns", data.shipping_returns, { shouldDirty: true });
+      }
+      if (typeof data.default_price === "number") {
+        setValue("price", data.default_price, { shouldDirty: true });
+      }
+    } catch {/* noop */}
+  };
 
   const handleImageUpload = async (event) => {
      const file = event.target.files[0];
@@ -207,7 +288,7 @@ export const ProductEdit = () => {
     const newUrls = urls.filter(url => !currentImages.includes(url)); 
     
     if (newUrls.length > 0) {
-        append(newUrls);
+        newUrls.forEach((u) => append(u));
     }
   };
 
@@ -276,7 +357,21 @@ export const ProductEdit = () => {
                      <TextFieldWithCopy control={control} errors={errors} fieldName="short_description" label="Short Description (under title)" rows={2} handleOpenCopyModal={handleOpenCopyModal} />
                   </Grid>
                   <Grid item xs={12}>
-                      <TextFieldWithCopy control={control} errors={errors} fieldName="description" label="Details & Craftsmanship" rows={4} handleOpenCopyModal={handleOpenCopyModal} />
+                      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                        <Typography variant="body2" fontWeight={600} color="text.secondary">Details & Craftsmanship</Typography>
+                        <Button 
+                          type="button"
+                          size="small" 
+                          startIcon={<AutoFixHighIcon />} 
+                          variant="outlined" 
+                          onClick={applyFabricDefaultsForce}
+                          disabled={!watch("fabric_type")}
+                          title="Apply defaults from selected fabric to product details"
+                        >
+                          Apply Fabric Defaults
+                        </Button>
+                      </Stack>
+                      <TextFieldWithCopy control={control} errors={errors} fieldName="description" label="" rows={4} handleOpenCopyModal={handleOpenCopyModal} />
                   </Grid>
                   <Grid item xs={12}>
                       <TextFieldWithCopy control={control} errors={errors} fieldName="care_instructions" label="Care Instructions" rows={4} handleOpenCopyModal={handleOpenCopyModal} />
@@ -338,7 +433,10 @@ export const ProductEdit = () => {
                                       value={selectedOption} 
                                       getOptionLabel={(option) => option.name || ""}
                                       isOptionEqualToValue={(option, value) => option.name === value?.name} 
-                                      onChange={(_, newValue) => field.onChange(newValue?.name || "")} 
+                                      onChange={async (_, newValue) => {
+                                          field.onChange(newValue?.name || "");
+                                          await applyFabricDefaultsIfBlank(newValue || null);
+                                      }} 
                                       renderInput={(params) => ( <TextField {...params} margin="none" variant="outlined" error={!!errors.fabric_type} helperText={errors.fabric_type?.message} InputLabelProps={{ shrink: true }} /> )}
                                   />
                               );

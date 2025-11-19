@@ -3,11 +3,12 @@ import {
 } from "@mui/x-data-grid";
 import { useDataGrid, List, CreateButton, DeleteButton } from "@refinedev/mui";
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Paper, Typography, Menu, MenuItem, IconButton, Stack, Box, FormControl, InputLabel, Select, Button } from "@mui/material";
 import { MoreVert, Edit, Delete, Add } from "@mui/icons-material";
 import { supabaseAdminClient } from "../../supabase";
 import { ProductReorderDialog } from "../../components/ProductReorderDialog";
+import { useList } from "@refinedev/core";
 
 export const ProductList = () => {
   const { dataGridProps, setSorters, tableQueryResult } = useDataGrid({
@@ -23,12 +24,37 @@ export const ProductList = () => {
   });
 
   const navigate = useNavigate();
+  const location = useLocation();
   const [anchorEl, setAnchorEl] = useState(null);
   const [currentRowId, setCurrentRowId] = useState(null);
   const open = Boolean(anchorEl);
   const [hasCustomOrder, setHasCustomOrder] = useState(false);
   const [orderMode, setOrderMode] = useState("created_desc"); // "custom" | "created_desc" | "name_asc"
   const [isReorderOpen, setIsReorderOpen] = useState(false);
+  const [selectedFabric, setSelectedFabric] = useState("");
+
+  // Load fabrics for filter dropdown
+  const { data: fabricsResponse } = useList({
+    resource: "fabrics",
+    pagination: { mode: "off" },
+    sorters: [{ field: "name", order: "asc" }],
+    meta: { select: "id,name" },
+  });
+  const fabrics = fabricsResponse?.data || [];
+
+  // If URL contains legacy filters query (from earlier version), clean it once to prevent DataGrid warnings
+  useEffect(() => {
+    if (location.search && location.search.includes("filters[")) {
+      navigate("/products", { replace: true });
+    }
+  }, [location.search, navigate]);
+
+  // Ensure exact-match filtering on the rendered rows to avoid partial matches like "Mul Mul Cotton"
+  const exactFilteredRows = useMemo(() => {
+    const rows = dataGridProps?.rows ?? [];
+    if (!selectedFabric) return rows;
+    return rows.filter((r) => r?.fabric_type === selectedFabric);
+  }, [dataGridProps?.rows, selectedFabric]);
 
   // Detect if `sort_order` column exists to enable custom ordering
   useEffect(() => {
@@ -73,6 +99,11 @@ export const ProductList = () => {
     } else {
       setSorters([{ field: "created_at", order: "desc" }]);
     }
+  };
+
+  const handleFabricFilterChange = (e) => {
+    const value = e.target.value;
+    setSelectedFabric(value);
   };
 
   const handleClick = (event, id) => {
@@ -184,6 +215,22 @@ export const ProductList = () => {
     <List
         headerButtons={
           <Stack direction="row" spacing={2} alignItems="center">
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel id="fabric-filter-label">Fabric</InputLabel>
+              <Select
+                labelId="fabric-filter-label"
+                value={selectedFabric}
+                label="Fabric"
+                onChange={handleFabricFilterChange}
+              >
+                <MenuItem value="">
+                  <em>All fabrics</em>
+                </MenuItem>
+                {fabrics.map((f) => (
+                  <MenuItem key={f.id} value={f.name}>{f.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             {hasCustomOrder && (
               <FormControl size="small" sx={{ minWidth: 180 }}>
                 <InputLabel id="order-mode-label">Order By</InputLabel>
@@ -224,6 +271,7 @@ export const ProductList = () => {
             <DataGrid
               {...dataGridProps}
               columns={columns}
+              rows={exactFilteredRows}
               rowHeight={72} 
               disableRowSelectionOnClick
               onRowClick={(params) => navigate(`/products/edit/${params.id}`)}
