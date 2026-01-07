@@ -3,7 +3,7 @@ import {
 } from "@mui/x-data-grid";
 import { useDataGrid, List, CreateButton, DeleteButton } from "@refinedev/mui";
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { Paper, Typography, Menu, MenuItem, IconButton, Stack, Box, FormControl, InputLabel, Select, Button } from "@mui/material";
 import { MoreVert, Edit, Delete, Add } from "@mui/icons-material";
 import { supabaseAdminClient } from "../../supabase";
@@ -11,11 +11,24 @@ import { ProductReorderDialog } from "../../components/ProductReorderDialog";
 import { useList } from "@refinedev/core";
 
 export const ProductList = () => {
+  const FABRIC_FILTER_STORAGE_KEY = "productFabricFilter";
+  const ORDER_MODE_STORAGE_KEY = "productOrderMode";
+  const DEFAULT_ORDER_MODE = "id_desc"; // "custom" | "name_asc" | "id_desc"
+  
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [hasCustomOrder, setHasCustomOrder] = useState(false);
+  
   const { dataGridProps, setSorters, tableQueryResult } = useDataGrid({
     sorters: {
       initial: [
         {
-          field: "created_at",
+          field: "id",
+          order: "desc",
+        },
+      ],
+      permanent: [
+        {
+          field: "id",
           order: "desc",
         },
       ],
@@ -28,10 +41,61 @@ export const ProductList = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [currentRowId, setCurrentRowId] = useState(null);
   const open = Boolean(anchorEl);
-  const [hasCustomOrder, setHasCustomOrder] = useState(false);
-  const [orderMode, setOrderMode] = useState("created_desc"); // "custom" | "created_desc" | "name_asc"
+  const normalizeOrderMode = (value) => {
+    if (!value) return DEFAULT_ORDER_MODE;
+    if (value === "created_desc") return DEFAULT_ORDER_MODE; // backward compat
+    const allowed = ["custom", "name_asc", "id_desc"];
+    return allowed.includes(value) ? value : DEFAULT_ORDER_MODE;
+  };
+
+  const persistOrderMode = (value) => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(ORDER_MODE_STORAGE_KEY, value);
+    const nextParams = new URLSearchParams(window.location.search);
+    if (value && value !== DEFAULT_ORDER_MODE) {
+      nextParams.set("order", value);
+    } else {
+      nextParams.delete("order");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const [orderMode, setOrderMode] = useState(() => {
+    const paramValue = normalizeOrderMode(searchParams.get("order"));
+    if (paramValue) return paramValue;
+    if (typeof window !== "undefined") {
+      return normalizeOrderMode(window.localStorage.getItem(ORDER_MODE_STORAGE_KEY));
+    }
+    return DEFAULT_ORDER_MODE;
+  });
   const [isReorderOpen, setIsReorderOpen] = useState(false);
-  const [selectedFabric, setSelectedFabric] = useState("");
+  const [selectedFabric, setSelectedFabric] = useState(() => {
+    const paramValue = searchParams.get("fabric");
+    if (paramValue !== null) return paramValue;
+    if (typeof window !== "undefined") {
+      return window.localStorage.getItem(FABRIC_FILTER_STORAGE_KEY) || "";
+    }
+    return "";
+  });
+
+  // Controlled sort model for DataGrid to prevent sort reset on data refetch
+  const sortModel = useMemo(() => {
+    let effectiveMode = orderMode;
+    if (orderMode === "custom" && !hasCustomOrder) {
+      effectiveMode = DEFAULT_ORDER_MODE;
+    }
+
+    if (effectiveMode === "custom") {
+      return [
+        { field: "sort_order", sort: "asc" },
+        { field: "id", sort: "desc" },
+      ];
+    } else if (effectiveMode === "name_asc") {
+      return [{ field: "name", sort: "asc" }];
+    } else {
+      return [{ field: "id", sort: "desc" }];
+    }
+  }, [orderMode, hasCustomOrder]);
 
   // Load fabrics for filter dropdown
   const { data: fabricsResponse } = useList({
@@ -48,6 +112,51 @@ export const ProductList = () => {
       navigate("/products", { replace: true });
     }
   }, [location.search, navigate]);
+
+  // Keep selected fabric in sync with URL changes (e.g., browser back)
+  useEffect(() => {
+    const fabricParam = searchParams.get("fabric");
+    if (fabricParam !== null && fabricParam !== selectedFabric) {
+      setSelectedFabric(fabricParam);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(FABRIC_FILTER_STORAGE_KEY, fabricParam);
+      }
+    }
+  }, [searchParams, selectedFabric]);
+
+  // Keep order mode in sync with URL changes (e.g., browser back/forward)
+  useEffect(() => {
+    const orderParamRaw = searchParams.get("order");
+    const normalized = normalizeOrderMode(orderParamRaw);
+    if (normalized !== orderMode) {
+      setOrderMode(normalized);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(ORDER_MODE_STORAGE_KEY, normalized);
+      }
+    }
+  }, [searchParams, orderMode]);
+
+  // Apply sorting based on order mode and persist it - runs on mount and when order changes
+  useEffect(() => {
+    let effectiveMode = orderMode;
+    if (orderMode === "custom" && !hasCustomOrder) {
+      effectiveMode = DEFAULT_ORDER_MODE;
+      setOrderMode(effectiveMode);
+      return;
+    }
+
+    const sortersConfig = sortModel.map(s => ({ field: s.field, order: s.sort }));
+    setSorters(sortersConfig);
+    persistOrderMode(effectiveMode);
+  }, [orderMode, hasCustomOrder, setSorters, sortModel]);
+
+  // Force re-apply sorting after data refetch to maintain order consistency
+  useEffect(() => {
+    if (tableQueryResult?.isFetching === false && tableQueryResult?.data) {
+      const sortersConfig = sortModel.map(s => ({ field: s.field, order: s.sort }));
+      setSorters(sortersConfig);
+    }
+  }, [tableQueryResult?.isFetching, tableQueryResult?.data, setSorters, sortModel]);
 
   // Ensure exact-match filtering on the rendered rows to avoid partial matches like "Mul Mul Cotton"
   const exactFilteredRows = useMemo(() => {
@@ -67,14 +176,6 @@ export const ProductList = () => {
           .limit(1);
         if (isMounted) {
           setHasCustomOrder(!error);
-          if (!error) {
-            // Prefer custom order if available
-            setOrderMode("custom");
-            setSorters([
-              { field: "sort_order", order: "asc" },
-              { field: "created_at", order: "desc" },
-            ]);
-          }
         }
       } catch {
         if (isMounted) setHasCustomOrder(false);
@@ -84,26 +185,27 @@ export const ProductList = () => {
     return () => {
       isMounted = false;
     };
-  }, [setSorters]);
+  }, []);
 
   const handleOrderModeChange = (e) => {
-    const value = e.target.value;
+    const value = normalizeOrderMode(e.target.value);
     setOrderMode(value);
-    if (value === "custom" && hasCustomOrder) {
-      setSorters([
-        { field: "sort_order", order: "asc" },
-        { field: "created_at", order: "desc" },
-      ]);
-    } else if (value === "name_asc") {
-      setSorters([{ field: "name", order: "asc" }]);
-    } else {
-      setSorters([{ field: "created_at", order: "desc" }]);
-    }
+    persistOrderMode(value);
   };
 
   const handleFabricFilterChange = (e) => {
     const value = e.target.value;
     setSelectedFabric(value);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(FABRIC_FILTER_STORAGE_KEY, value);
+    }
+    const nextParams = new URLSearchParams(searchParams);
+    if (value) {
+      nextParams.set("fabric", value);
+    } else {
+      nextParams.delete("fabric");
+    }
+    setSearchParams(nextParams, { replace: true });
   };
 
   const handleClick = (event, id) => {
@@ -240,7 +342,7 @@ export const ProductList = () => {
                   label="Order By"
                   onChange={handleOrderModeChange}
                 >
-                  <MenuItem value="created_desc">Newest first</MenuItem>
+                  <MenuItem value="id_desc">Product ID (newest)</MenuItem>
                   <MenuItem value="name_asc">Name (A–Z)</MenuItem>
                   <MenuItem value="custom">Custom order</MenuItem>
                 </Select>
@@ -272,6 +374,8 @@ export const ProductList = () => {
               {...dataGridProps}
               columns={columns}
               rows={exactFilteredRows}
+              sortModel={sortModel}
+              sortingMode="server"
               rowHeight={72} 
               disableRowSelectionOnClick
               onRowClick={(params) => navigate(`/products/edit/${params.id}`)}

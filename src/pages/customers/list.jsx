@@ -2,16 +2,22 @@ import { useDataGrid, List } from "@refinedev/mui";
 import { DataGrid } from "@mui/x-data-grid";
 import { Paper, Typography, IconButton, Menu, MenuItem, Box, Stack } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { MoreVert, Visibility } from "@mui/icons-material";
 
 export const CustomerList = () => {
-  const { dataGridProps } = useDataGrid({ 
+  const { dataGridProps, setSorters, tableQueryResult } = useDataGrid({ 
     resource: "customers",
     sorters: {
       initial: [
         {
-          field: "created_at",
+          field: "id",
+          order: "desc",
+        },
+      ],
+      permanent: [
+        {
+          field: "id",
           order: "desc",
         },
       ],
@@ -21,6 +27,18 @@ export const CustomerList = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [currentRowId, setCurrentRowId] = useState(null);
   const open = Boolean(anchorEl);
+
+  // Controlled sort model for DataGrid to prevent sort reset on data refetch
+  const sortModel = useMemo(() => {
+    return [{ field: "id", sort: "desc" }];
+  }, []);
+
+  // Force re-apply sorting after data refetch to maintain order consistency
+  useEffect(() => {
+    if (tableQueryResult?.isFetching === false && tableQueryResult?.data) {
+      setSorters([{ field: "id", order: "desc" }]);
+    }
+  }, [tableQueryResult?.isFetching, tableQueryResult?.data, setSorters]);
 
   const handleClick = (event, id) => {
     event.stopPropagation();
@@ -89,11 +107,11 @@ export const CustomerList = () => {
         <DataGrid
           {...dataGridProps}
           columns={columns}
-          // autoHeight // <-- FIX: Removed autoHeight
-          rowHeight={64} // <-- FIX: Added explicit rowHeight to match your old 'py: 16px' padding
+          sortModel={sortModel}
+          sortingMode="server"
+          rowHeight={64}
           disableRowSelectionOnClick
           onRowClick={(params) => navigate(`/customers/show/${params.id}`)}
-          // sx prop removed
         />
       </Paper>
     </List>

@@ -2,17 +2,23 @@ import {
   DataGrid,
 } from "@mui/x-data-grid";
 import { useDataGrid, List, CreateButton, DeleteButton } from "@refinedev/mui";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Paper, Typography, Menu, MenuItem, IconButton, Stack, Box } from "@mui/material";
 import { MoreVert, Edit, Delete, Add } from "@mui/icons-material";
 
 export const FabricList = () => {
-  const { dataGridProps } = useDataGrid({
+  const { dataGridProps, setSorters, tableQueryResult } = useDataGrid({
     sorters: {
       initial: [
         {
-          field: "created_at",
+          field: "id",
+          order: "desc",
+        },
+      ],
+      permanent: [
+        {
+          field: "id",
           order: "desc",
         },
       ],
@@ -22,6 +28,18 @@ export const FabricList = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [currentRowId, setCurrentRowId] = useState(null);
   const open = Boolean(anchorEl);
+
+  // Controlled sort model for DataGrid to prevent sort reset on data refetch
+  const sortModel = useMemo(() => {
+    return [{ field: "id", sort: "desc" }];
+  }, []);
+
+  // Force re-apply sorting after data refetch to maintain order consistency
+  useEffect(() => {
+    if (tableQueryResult?.isFetching === false && tableQueryResult?.data) {
+      setSorters([{ field: "id", order: "desc" }]);
+    }
+  }, [tableQueryResult?.isFetching, tableQueryResult?.data, setSorters]);
 
   const handleClick = (event, id) => {
     event.stopPropagation();
@@ -129,11 +147,11 @@ export const FabricList = () => {
             <DataGrid
               {...dataGridProps}
               columns={columns}
-              // autoHeight // <-- FIX: Removed autoHeight
-              rowHeight={72} // <-- FIX: Added explicit rowHeight to match your old 'py: 22px' padding
+              sortModel={sortModel}
+              sortingMode="server"
+              rowHeight={72}
               disableRowSelectionOnClick
               onRowClick={(params) => navigate(`/fabrics/edit/${params.id}`)}
-              // sx prop removed
             />
         </Paper>
     </List>

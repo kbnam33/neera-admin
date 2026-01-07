@@ -65,11 +65,17 @@ const StatusSelect = ({ orderId, currentStatus }) => {
 
 
 export const OrderList = () => {
-  const { dataGridProps, setFilters } = useDataGrid({
+  const { dataGridProps, setFilters, setSorters, tableQueryResult } = useDataGrid({
     sorters: {
       initial: [
         {
-          field: "created_at",
+          field: "id",
+          order: "desc",
+        },
+      ],
+      permanent: [
+        {
+          field: "id",
           order: "desc",
         },
       ],
@@ -78,6 +84,18 @@ export const OrderList = () => {
 
   const [customerName, setCustomerName] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  // Controlled sort model for DataGrid to prevent sort reset on data refetch
+  const sortModel = useMemo(() => {
+    return [{ field: "id", sort: "desc" }];
+  }, []);
+
+  // Force re-apply sorting after data refetch to maintain order consistency
+  useEffect(() => {
+    if (tableQueryResult?.isFetching === false && tableQueryResult?.data) {
+      setSorters([{ field: "id", order: "desc" }]);
+    }
+  }, [tableQueryResult?.isFetching, tableQueryResult?.data, setSorters]);
 
   useEffect(() => {
     const filters = [];
@@ -209,11 +227,11 @@ export const OrderList = () => {
         <DataGrid
           {...dataGridProps}
           columns={columns}
-          // autoHeight // <-- FIX: Removed autoHeight
-          rowHeight={64} // <-- FIX: Added explicit rowHeight
+          sortModel={sortModel}
+          sortingMode="server"
+          rowHeight={64}
           disableRowSelectionOnClick
           onRowClick={(params) => navigate(`/orders/show/${params.id}`)}
-          // sx prop removed
         />
       </Paper>
     </List>
