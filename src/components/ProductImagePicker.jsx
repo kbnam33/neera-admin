@@ -3,12 +3,13 @@ import {
     Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, InputAdornment, TextField,
     DialogActions, useTheme // Added DialogActions and useTheme
 } from "@mui/material";
-import { supabaseClient } from "../supabase";
+import { supabaseClient, supabaseAdminClient } from "../supabase";
 import CloseIcon from '@mui/icons-material/Close';
 import ImageSearchIcon from '@mui/icons-material/ImageSearch';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'; // Added for selection
-import { useState, useEffect, useMemo } from "react";
+import RefreshIcon from '@mui/icons-material/Refresh';
+import { useState, useEffect, useMemo, useCallback } from "react";
 
 // Helper function to list all files from the root of a bucket
 const fetchRootFiles = async (bucketName, { limit = 100, offset = 0 } = {}) => {
@@ -41,6 +42,7 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
     const [rootOffset, setRootOffset] = useState(0);
     const [hasMoreRoot, setHasMoreRoot] = useState(true);
     const [isLoading, setIsLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [filter, setFilter] = useState("");
     const [view, setView] = useState('list'); // 'list' or 'images'
     const [selectedItem, setSelectedItem] = useState(null); // Can be a product object or 'root'
@@ -51,6 +53,68 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
     // --- Windowing state for image grid ---
     const PAGE_SIZE = 60;
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+    // Extract fetchData as a callable function - returns the unorganized images data
+    const fetchData = useCallback(async (updateCurrentView = false) => {
+        if (updateCurrentView) {
+            setIsRefreshing(true);
+        } else {
+            setIsLoading(true);
+        }
+        
+        try {
+            // Fetch all products with admin client for better performance
+            const { data: productsData, error: productsError } = await supabaseAdminClient
+                .from('products')
+                .select('id, name, images')
+                .order('name', { ascending: true });
+            
+            if (productsError) throw productsError;
+            
+            // Fetch first page of unorganized images from root
+            const initialRoot = await fetchRootFiles('product-images', { limit: 100, offset: 0 });
+
+            // Create a Set of all images used by any product
+            const allUsedImages = new Set();
+            if (productsData) {
+                productsData.forEach(product => {
+                    if (product.images && Array.isArray(product.images)) {
+                        product.images.forEach(url => allUsedImages.add(url));
+                    }
+                });
+            }
+
+            // Filter root images to only include those NOT in the allUsedImages set
+            const unusedRootImagesData = initialRoot.filter(
+                file => !allUsedImages.has(file.url)
+            );
+
+            setProducts(productsData.filter(p => p.images && p.images.length > 0));
+            setRootImages(unusedRootImagesData);
+            setRootOffset(unusedRootImagesData.length);
+            setHasMoreRoot(initialRoot.length >= 100);
+
+            // Update selectedItem if we're viewing Unorganized Images and refresh was requested
+            if (updateCurrentView) {
+                setSelectedItem(prev => {
+                    if (prev?.id === 'root') {
+                        return { id: 'root', name: 'Unorganized Images', images: unusedRootImagesData };
+                    }
+                    return prev;
+                });
+            }
+
+            return unusedRootImagesData;
+
+        } catch (error) {
+            console.error("Error fetching data for picker:", error);
+            alert("Failed to load products and images.");
+            return [];
+        } finally {
+            setIsLoading(false);
+            setIsRefreshing(false);
+        }
+    }, []);
 
     useEffect(() => {
         if (!open) {
@@ -65,52 +129,8 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
             return;
         }
 
-        const fetchData = async () => {
-            setIsLoading(true);
-            try {
-                // Fetch all products
-                const { data: productsData, error: productsError } = await supabaseClient
-                    .from('products')
-                    .select('id, name, images')
-                    .order('name', { ascending: true });
-                
-                if (productsError) throw productsError;
-                
-                // Fetch first page of unorganized images from root
-                const initialRoot = await fetchRootFiles('product-images', { limit: 100, offset: 0 });
-
-                // --- START OF CHANGE ---
-                // Create a Set of all images used by any product
-                const allUsedImages = new Set();
-                if (productsData) {
-                    productsData.forEach(product => {
-                        if (product.images && Array.isArray(product.images)) {
-                            product.images.forEach(url => allUsedImages.add(url));
-                        }
-                    });
-                }
-
-                // Filter root images to only include those NOT in the allUsedImages set
-                const unusedRootImagesData = initialRoot.filter(
-                    file => !allUsedImages.has(file.url)
-                );
-                // --- END OF CHANGE ---
-
-                setProducts(productsData.filter(p => p.images && p.images.length > 0));
-                setRootImages(unusedRootImagesData); // <-- Use the new filtered data
-                setRootOffset(unusedRootImagesData.length);
-                setHasMoreRoot(initialRoot.length >= 100);
-
-            } catch (error) {
-                console.error("Error fetching data for picker:", error);
-                alert("Failed to load products and images.");
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchData();
-    }, [open]);
+        fetchData(false); // Don't update current view, just load data
+    }, [open, fetchData]);
 
     // When switching to images view or changing selected item, reset window
     useEffect(() => {
@@ -130,9 +150,16 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
         setView('images');
     };
 
-    const handleSelectRoot = () => {
-        setSelectedItem({ id: 'root', name: 'Unorganized Images', images: rootImages });
-        setView('images');
+    const handleSelectRoot = async () => {
+        setIsRefreshing(true);
+        try {
+            // Fetch fresh data to ensure we have the latest unorganized images
+            const freshUnorganizedImages = await fetchData(false);
+            setSelectedItem({ id: 'root', name: 'Unorganized Images', images: freshUnorganizedImages });
+            setView('images');
+        } finally {
+            setIsRefreshing(false);
+        }
     };
 
     const handleBack = () => {
@@ -165,13 +192,19 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
             const next = await fetchRootFiles('product-images', { limit: 100, offset: rootOffset });
 
             // Exclude images already used by products
-            // Build a quick lookup of all product images (existing state)
+            // Fetch fresh product data to ensure accuracy
+            const { data: freshProducts } = await supabaseAdminClient
+                .from('products')
+                .select('images');
+
             const allProductImages = new Set();
-            products.forEach(product => {
-                if (product.images && Array.isArray(product.images)) {
-                    product.images.forEach(url => allProductImages.add(url));
-                }
-            });
+            if (freshProducts) {
+                freshProducts.forEach(product => {
+                    if (product.images && Array.isArray(product.images)) {
+                        product.images.forEach(url => allProductImages.add(url));
+                    }
+                });
+            }
 
             const filteredNext = next.filter(file => !allProductImages.has(file.url));
 
@@ -209,15 +242,26 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
                         {view === 'list' ? "Select from Existing" : `Select from "${selectedItem?.name || ''}"`}
                     </Typography>
                 </Box>
-                {/* --- Show count when in image view --- */}
-                {view === 'images' && selectedUrls.length > 0 && (
-                    <Typography variant="body1" color="text.secondary">
-                        {selectedUrls.length} selected
-                    </Typography>
-                )}
-                <IconButton onClick={onClose} size="small">
-                    <CloseIcon />
-                </IconButton>
+                <Box display="flex" alignItems="center" gap={1}>
+                    {/* --- Show count when in image view --- */}
+                    {view === 'images' && selectedUrls.length > 0 && (
+                        <Typography variant="body1" color="text.secondary">
+                            {selectedUrls.length} selected
+                        </Typography>
+                    )}
+                    {/* Refresh button */}
+                    <IconButton 
+                        onClick={() => fetchData(true)} 
+                        size="small"
+                        disabled={isLoading || isRefreshing}
+                        title="Refresh images"
+                    >
+                        <RefreshIcon />
+                    </IconButton>
+                    <IconButton onClick={onClose} size="small">
+                        <CloseIcon />
+                    </IconButton>
+                </Box>
             </DialogTitle>
 
             <DialogContent dividers sx={{ minHeight: '60vh', bgcolor: 'background.default' }} onScroll={handleScroll}>
@@ -245,10 +289,10 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages }) => { // Pr
                                 />
                                 <List dense component={Paper} elevation={0}>
                                     {rootImages.length > 0 && (
-                                        <ListItemButton onClick={handleSelectRoot}>
+                                        <ListItemButton onClick={handleSelectRoot} disabled={isRefreshing}>
                                             <ListItemText 
                                                 primary="Unorganized Images" 
-                                                secondary={`${rootImages.length} image(s) available`} 
+                                                secondary={isRefreshing ? 'Loading...' : `${rootImages.length} image(s) available`} 
                                             />
                                         </ListItemButton>
                                     )}

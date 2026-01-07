@@ -32,7 +32,8 @@ import { OrderList } from "./pages/orders/list";
 import { OrderShow } from "./pages/orders/show";
 import { CustomerList } from "./pages/customers/list";
 import { CustomerShow } from "./pages/customers/show";
-import { TShirt, Rows, ShoppingCart, Users } from "phosphor-react";
+import { ImageList } from "./pages/images/list";
+import { TShirt, Rows, ShoppingCart, Users, ImageSquare } from "phosphor-react";
 
 // Initialize providers with the correct clients
 const dataProviderInstance = dataProvider(supabaseAdminClient);
@@ -69,6 +70,11 @@ function App() {
                     create: "/fabrics/create",
                     edit: "/fabrics/edit/:id",
                     meta: { canDelete: true, icon: <Rows /> },
+                  },
+                  {
+                    name: "images",
+                    list: "/images",
+                    meta: { canDelete: false, icon: <ImageSquare />, label: "Image Gallery" },
                   },
                    {
                     name: "orders",
@@ -113,6 +119,9 @@ function App() {
                       <Route index element={<FabricList />} />
                       <Route path="create" element={<FabricCreate />} />
                       <Route path="edit/:id" element={<FabricEdit />} />
+                    </Route>
+                    <Route path="/images">
+                      <Route index element={<ImageList />} />
                     </Route>
                      <Route path="/orders">
                       <Route index element={<OrderList />} />
