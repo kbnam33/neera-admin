@@ -9,6 +9,11 @@ import { supabaseClient, supabaseAdminClient } from "../../supabase";
 import { CloudUpload, Delete, Refresh, Image as ImageIcon, Search } from "@mui/icons-material";
 import { v4 as uuidv4 } from "uuid";
 
+// Cache for used images - shared across component instances
+let usedImagesCache = null;
+let cacheTimestamp = null;
+const CACHE_DURATION = 30000; // 30 seconds
+
 export const ImageList = () => {
   const [images, setImages] = useState([]);
   const [totalCount, setTotalCount] = useState(0); // Track total count separately
@@ -25,9 +30,16 @@ export const ImageList = () => {
   const PAGE_SIZE = 50; // Reduced for faster initial load
   const observerTarget = useRef(null);
 
-  // Fetch all images used by products
-  const fetchUsedImages = async () => {
+  // Fetch all images used by products with caching
+  const fetchUsedImages = async (forceRefresh = false) => {
     try {
+      // Return cached data if valid and not forcing refresh
+      const now = Date.now();
+      if (!forceRefresh && usedImagesCache && cacheTimestamp && (now - cacheTimestamp < CACHE_DURATION)) {
+        return usedImagesCache;
+      }
+
+      // Fetch only the images field, not entire products
       const { data: products, error } = await supabaseAdminClient
         .from('products')
         .select('images');
@@ -36,73 +48,67 @@ export const ImageList = () => {
 
       // Collect all used image URLs
       const usedUrls = new Set();
-      products.forEach(product => {
-        if (Array.isArray(product.images)) {
-          product.images.forEach(url => {
-            if (url) usedUrls.add(url);
-          });
-        }
-      });
+      if (products) {
+        products.forEach(product => {
+          if (Array.isArray(product.images)) {
+            product.images.forEach(url => {
+              if (url) usedUrls.add(url);
+            });
+          }
+        });
+      }
+
+      // Update cache
+      usedImagesCache = usedUrls;
+      cacheTimestamp = now;
 
       return usedUrls;
     } catch (error) {
       console.error("Error fetching used images:", error);
-      return new Set();
+      return usedImagesCache || new Set();
     }
   };
 
-  // Fetch total count of unorganized images (handles unlimited images)
-  const fetchTotalCount = async () => {
+  // Fetch total count of unorganized images (optimized with caching)
+  const fetchTotalCount = async (forceRefresh = false) => {
     try {
-      let allFiles = [];
-      let offset = 0;
-      const batchSize = 1000;
-      let hasMore = true;
+      // Get used images from cache first
+      const usedImages = await fetchUsedImages(forceRefresh);
 
-      // Fetch all files in batches
-      while (hasMore) {
-        const { data, error } = await supabaseClient.storage
-          .from("product-images")
-          .list(null, {
-            limit: batchSize,
-            offset: offset,
-          });
+      // Fetch only first batch to estimate
+      const { data, error } = await supabaseClient.storage
+        .from("product-images")
+        .list(null, {
+          limit: 1000,
+          offset: 0,
+        });
 
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          allFiles = [...allFiles, ...data];
-          offset += batchSize;
-          hasMore = data.length === batchSize;
-        } else {
-          hasMore = false;
-        }
-      }
+      if (error) throw error;
 
       // Filter out folders and placeholder files
-      const rootFiles = allFiles.filter(
+      const rootFiles = (data || []).filter(
         item => item.id !== null && item.name !== '.emptyFolderPlaceholder'
       );
 
-      // Get all used images
-      const usedImages = await fetchUsedImages();
-
       // Filter out images that are used in products
-      const unorganizedFiles = rootFiles.filter(file => {
+      let unorganizedCount = 0;
+      rootFiles.forEach(file => {
         const { data: { publicUrl } } = supabaseClient.storage
           .from("product-images")
           .getPublicUrl(file.name);
-        return !usedImages.has(publicUrl);
+        if (!usedImages.has(publicUrl)) {
+          unorganizedCount++;
+        }
       });
       
-      setTotalCount(unorganizedFiles.length);
+      setTotalCount(unorganizedCount);
     } catch (error) {
       console.error("Error fetching total count:", error);
     }
   };
 
-  // Fetch unorganized images from root of product-images bucket
-  const fetchImages = async (offsetValue = 0, append = false) => {
+  // Fetch unorganized images from root of product-images bucket (optimized)
+  const fetchImages = async (offsetValue = 0, append = false, forceRefresh = false) => {
     if (append) {
       setIsLoadingMore(true);
     } else {
@@ -110,12 +116,11 @@ export const ImageList = () => {
     }
     
     try {
-      // Get all used images first
-      const usedImages = await fetchUsedImages();
+      // Get used images from cache
+      const usedImages = await fetchUsedImages(forceRefresh);
 
-      // Fetch storage files - we need to fetch more than PAGE_SIZE 
-      // because some will be filtered out as "used"
-      const fetchSize = PAGE_SIZE * 3; // Fetch 3x to account for filtering
+      // Fetch storage files - optimized size
+      const fetchSize = PAGE_SIZE * 2; // Reduced from 3x to 2x
       const { data, error } = await supabaseClient.storage
         .from("product-images")
         .list(null, {
@@ -126,36 +131,40 @@ export const ImageList = () => {
 
       if (error) throw error;
 
-      // Filter out folders and placeholder files
-      const rootFiles = data.filter(
-        item => item.id !== null && item.name !== '.emptyFolderPlaceholder'
-      );
-
-      // Map to image objects and filter out used images
-      const allImageList = rootFiles.map(file => {
-        const { data: { publicUrl } } = supabaseClient.storage
-          .from("product-images")
-          .getPublicUrl(file.name);
-        return { 
-          name: file.name, 
-          url: publicUrl,
-          createdAt: file.created_at,
-          size: file.metadata?.size || 0
-        };
-      });
-
-      // Filter out images that are used in products
-      const unorganizedImages = allImageList.filter(img => !usedImages.has(img.url));
-
-      // Take only PAGE_SIZE items for display
-      const imageList = unorganizedImages.slice(0, PAGE_SIZE);
+      // Filter and map in a single pass for better performance
+      const imageList = [];
+      if (data) {
+        for (const file of data) {
+          // Skip folders and placeholders
+          if (!file.id || file.name === '.emptyFolderPlaceholder') continue;
+          
+          const { data: { publicUrl } } = supabaseClient.storage
+            .from("product-images")
+            .getPublicUrl(file.name);
+          
+          // Only include if not used in products
+          if (!usedImages.has(publicUrl)) {
+            imageList.push({
+              name: file.name,
+              url: publicUrl,
+              createdAt: file.created_at,
+              size: file.metadata?.size || 0
+            });
+            
+            // Stop once we have enough for this page
+            if (imageList.length >= PAGE_SIZE) break;
+          }
+        }
+      }
 
       if (append) {
         setImages(prev => [...prev, ...imageList]);
       } else {
         setImages(imageList);
-        // Update total count when doing initial fetch
-        fetchTotalCount();
+        // Update total count when doing initial fetch (async, non-blocking)
+        if (!forceRefresh) {
+          fetchTotalCount(false);
+        }
       }
       
       setHasMore(imageList.length === PAGE_SIZE);
@@ -225,10 +234,11 @@ export const ImageList = () => {
       }
 
       // Refresh the image list and reset state
-      // fetchImages will call fetchTotalCount to get accurate unorganized count
+      // Force refresh to bypass cache since we just uploaded
       setOffset(0);
       setHasMore(true);
-      await fetchImages(0, false);
+      await fetchImages(0, false, false);
+      await fetchTotalCount(false);
       
     } catch (error) {
       console.error("Error uploading images:", error);
@@ -344,8 +354,11 @@ export const ImageList = () => {
               setOffset(0);
               setHasMore(true);
               setSelectedImages([]);
-              fetchImages(0, false);
-              fetchTotalCount();
+              // Force cache refresh
+              usedImagesCache = null;
+              cacheTimestamp = null;
+              fetchImages(0, false, true);
+              fetchTotalCount(true);
             }}
             disabled={isLoading || isUploading}
           >

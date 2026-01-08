@@ -5,7 +5,7 @@ import { useDataGrid, List, CreateButton, DeleteButton } from "@refinedev/mui";
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { Paper, Typography, Menu, MenuItem, IconButton, Stack, Box, FormControl, InputLabel, Select, Button } from "@mui/material";
-import { MoreVert, Edit, Delete, Add } from "@mui/icons-material";
+import { MoreVert, Edit, Delete, Add, PlaylistAdd } from "@mui/icons-material";
 import { supabaseAdminClient } from "../../supabase";
 import { ProductReorderDialog } from "../../components/ProductReorderDialog";
 import { useList } from "@refinedev/core";
@@ -353,6 +353,14 @@ export const ProductList = () => {
                 Reorder
               </Button>
             )}
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<PlaylistAdd />}
+              onClick={() => navigate("/products/bulk-create")}
+            >
+              Bulk Add
+            </Button>
             <CreateButton
               variant="outlined"
               color="secondary"

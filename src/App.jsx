@@ -25,6 +25,7 @@ import { Login } from "./pages/login";
 import { ProductList } from "./pages/products/list";
 import { ProductCreate } from "./pages/products/create";
 import { ProductEdit } from "./pages/products/edit";
+import { ProductBulkCreate } from "./pages/products/bulk-create";
 import { FabricList } from "./pages/fabrics/list";
 import { FabricCreate } from "./pages/fabrics/create";
 import { FabricEdit } from "./pages/fabrics/edit";
@@ -113,6 +114,7 @@ function App() {
                     <Route path="/products">
                       <Route index element={<ProductList />} />
                       <Route path="create" element={<ProductCreate />} />
+                      <Route path="bulk-create" element={<ProductBulkCreate />} />
                       <Route path="edit/:id" element={<ProductEdit />} />
                     </Route>
                     <Route path="/fabrics">
