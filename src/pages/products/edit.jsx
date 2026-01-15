@@ -179,7 +179,8 @@ export const ProductEdit = () => {
 
   // Field array for images
   const { fields, append, remove, move, replace } = useFieldArray({ control, name: "images" });
-  const watchedImages = useWatch({ control, name: "images" }); 
+  const watchedImages = useWatch({ control, name: "images" });
+  const watchedFabricType = useWatch({ control, name: "fabric_type" }); 
 
   // Keep field array in sync with loaded product images
   useEffect(() => {
@@ -187,6 +188,31 @@ export const ProductEdit = () => {
       replace(productData.images);
     }
   }, [productData?.images, replace]);
+
+  // Auto-update shipping returns when fabric changes
+  useEffect(() => {
+    const updateShippingReturns = async () => {
+      if (!watchedFabricType || !productData) return; // Don't run on initial load
+      
+      try {
+        const { data: fabricData, error } = await supabaseAdminClient
+          .from("fabrics")
+          .select("shipping_returns")
+          .eq("name", watchedFabricType)
+          .single();
+
+        if (error || !fabricData) return;
+
+        if (fabricData.shipping_returns) {
+          setValue("shipping_returns", fabricData.shipping_returns, { shouldDirty: true });
+        }
+      } catch (error) {
+        console.error("Error auto-updating shipping returns:", error);
+      }
+    };
+
+    updateShippingReturns();
+  }, [watchedFabricType, productData, setValue]);
  
   const { autocompleteProps } = useAutocomplete({ resource: "fabrics" });
 
@@ -218,9 +244,11 @@ export const ProductEdit = () => {
       if (isBlank(currentCare) && data.care_instructions) {
         setValue("care_instructions", data.care_instructions, { shouldDirty: true });
       }
+      
       if (isBlank(currentShipping) && data.shipping_returns) {
         setValue("shipping_returns", data.shipping_returns, { shouldDirty: true });
       }
+      
       if ((currentPrice == null || currentPrice === '') && typeof data.default_price === "number") {
         setValue("price", data.default_price, { shouldDirty: true });
       }
@@ -252,9 +280,11 @@ export const ProductEdit = () => {
       if (data.care_instructions != null) {
         setValue("care_instructions", data.care_instructions, { shouldDirty: true });
       }
+      
       if (data.shipping_returns != null) {
         setValue("shipping_returns", data.shipping_returns, { shouldDirty: true });
       }
+      
       if (typeof data.default_price === "number") {
         setValue("price", data.default_price, { shouldDirty: true });
       }

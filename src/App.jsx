@@ -34,7 +34,8 @@ import { OrderShow } from "./pages/orders/show";
 import { CustomerList } from "./pages/customers/list";
 import { CustomerShow } from "./pages/customers/show";
 import { ImageList } from "./pages/images/list";
-import { TShirt, Rows, ShoppingCart, Users, ImageSquare } from "phosphor-react";
+import { PolicyList } from "./pages/policies/list";
+import { TShirt, Rows, ShoppingCart, Users, ImageSquare, FileText } from "phosphor-react";
 
 // Initialize providers with the correct clients
 const dataProviderInstance = dataProvider(supabaseAdminClient);
@@ -89,6 +90,11 @@ function App() {
                     show: "/customers/show/:id",
                     meta: { canDelete: false, icon: <Users /> },
                   },
+                  {
+                    name: "policies",
+                    list: "/policies",
+                    meta: { canDelete: false, icon: <FileText />, label: "Policies" },
+                  },
                 ]}
                 options={{
                   syncWithLocation: true,
@@ -132,6 +138,9 @@ function App() {
                     <Route path="/customers">
                       <Route index element={<CustomerList />} />
                       <Route path="show/:id" element={<CustomerShow />} />
+                    </Route>
+                    <Route path="/policies">
+                      <Route index element={<PolicyList />} />
                     </Route>
                   </Route>
                   <Route

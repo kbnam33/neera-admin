@@ -14,7 +14,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save';
 import ImageSearchIcon from '@mui/icons-material/ImageSearch';
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useList } from "@refinedev/core";
 import { ProductImagePicker } from "../../components/ProductImagePicker"; 
@@ -138,7 +138,33 @@ export const ProductCreate = () => {
 
   const { fields, append, remove, move } = useFieldArray({ control, name: "images" });
   const images = useWatch({ control, name: "images" });
+  const watchedFabricType = useWatch({ control, name: "fabric_type" });
   const { autocompleteProps } = useAutocomplete({ resource: "fabrics" });
+
+  // Auto-update shipping returns when fabric changes
+  useEffect(() => {
+    const updateShippingReturns = async () => {
+      if (!watchedFabricType) return;
+      
+      try {
+        const { data: fabricData, error } = await supabaseAdminClient
+          .from("fabrics")
+          .select("shipping_returns")
+          .eq("name", watchedFabricType)
+          .single();
+
+        if (error || !fabricData) return;
+
+        if (fabricData.shipping_returns) {
+          setValue("shipping_returns", fabricData.shipping_returns, { shouldDirty: true });
+        }
+      } catch (error) {
+        console.error("Error auto-updating shipping returns:", error);
+      }
+    };
+
+    updateShippingReturns();
+  }, [watchedFabricType, setValue]);
 
   const isBlank = (v) => !v || String(v).trim() === "";
 
@@ -169,9 +195,11 @@ export const ProductCreate = () => {
       if (isBlank(currentCare) && data.care_instructions) {
         setValue("care_instructions", data.care_instructions, { shouldDirty: true });
       }
+      
       if (isBlank(currentShipping) && data.shipping_returns) {
         setValue("shipping_returns", data.shipping_returns, { shouldDirty: true });
       }
+      
       if ((currentPrice == null || currentPrice === '') && typeof data.default_price === "number") {
         setValue("price", data.default_price, { shouldDirty: true });
       }
@@ -203,9 +231,11 @@ export const ProductCreate = () => {
       if (data.care_instructions != null) {
         setValue("care_instructions", data.care_instructions, { shouldDirty: true });
       }
+      
       if (data.shipping_returns != null) {
         setValue("shipping_returns", data.shipping_returns, { shouldDirty: true });
       }
+      
       if (typeof data.default_price === "number") {
         setValue("price", data.default_price, { shouldDirty: true });
       }

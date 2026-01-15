@@ -1,15 +1,15 @@
 import { Create } from "@refinedev/mui";
-import { Box, TextField, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade, Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, Stack, InputAdornment } from "@mui/material";
-import { useForm } from "@refinedev/react-hook-form"; // <-- IMPORT CHANGED
-import { useWatch } from "react-hook-form"; // <-- Kept for useWatch
-import { supabaseClient } from "../../supabase";
+import { Box, TextField, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade, Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, Stack, InputAdornment, MenuItem, Chip, Alert } from "@mui/material";
+import { useForm } from "@refinedev/react-hook-form";
+import { useWatch, Controller } from "react-hook-form";
+import { supabaseClient, supabaseAdminClient } from "../../supabase";
 import { v4 as uuidv4 } from "uuid";
 import DeleteIcon from '@mui/icons-material/Delete';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import SaveIcon from '@mui/icons-material/Save';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CloseIcon from '@mui/icons-material/Close';
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useList } from "@refinedev/core";
 
 // --- Copy Fabric Modal ---
@@ -50,21 +50,20 @@ const CopyFabricModal = ({ open, onClose, fabrics, onSelectFabric }) => {
 export const FabricCreate = () => {
   const {
     saveButtonProps,
-    refineCore: { onFinish }, // Get onFinish from refineCore
+    refineCore: { onFinish },
     control,
     register,
     formState: { errors },
     setValue,
-    handleSubmit, // Get handleSubmit
+    handleSubmit,
   } = useForm({
-    // Use Refine's useForm hook
     refineCoreProps: {
       action: "create",
       resource: "fabrics",
     },
     defaultValues: {
       name: "",
-      image_url: "", // Field name matches DB
+      image_url: "",
       description: "",
       care_instructions: "",
       shipping_returns: "",
@@ -76,6 +75,7 @@ export const FabricCreate = () => {
   const [previewImage, setPreviewImage] = useState("");
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
   const [copyTargetField, setCopyTargetField] = useState(null);
+  const [policies, setPolicies] = useState([]);
 
   const { data: fabricsResponse } = useList({
     resource: "fabrics",
@@ -84,6 +84,32 @@ export const FabricCreate = () => {
     meta: { select: "id,name,description,care_instructions,shipping_returns,default_price,image_url" },
   });
   const fabrics = fabricsResponse?.data || [];
+
+  // Fetch policies and auto-apply default
+  useEffect(() => {
+    const fetchPolicies = async () => {
+      try {
+        const { data, error } = await supabaseAdminClient
+          .from("shipping_policies")
+          .select("*")
+          .order("is_default", { ascending: false })
+          .order("name", { ascending: true });
+
+        if (error) throw error;
+        setPolicies(data || []);
+        
+        // Auto-apply default policy content to shipping_returns field
+        const defaultPol = data?.find(p => p.is_default);
+        if (defaultPol && defaultPol.content) {
+          setValue("shipping_returns", defaultPol.content, { shouldDirty: false });
+        }
+      } catch (error) {
+        console.error("Error fetching policies:", error);
+      }
+    };
+
+    fetchPolicies();
+  }, [setValue]);
 
   const handleOpenCopyModal = (fieldName) => {
     setCopyTargetField(fieldName);
@@ -203,6 +229,44 @@ export const FabricCreate = () => {
                           },
                         }}
                       />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Shipping Policy Template</Typography>
+                      <TextField
+                        select
+                        fullWidth
+                        margin="none"
+                        variant="outlined"
+                        size="small"
+                        value=""
+                        onChange={(e) => {
+                          const policyId = e.target.value;
+                          if (policyId) {
+                            const policy = policies.find(p => p.id === policyId);
+                            if (policy) {
+                              setValue("shipping_returns", policy.content || "", { shouldDirty: true });
+                            }
+                          }
+                        }}
+                        SelectProps={{
+                          displayEmpty: true,
+                        }}
+                      >
+                        <MenuItem value="">
+                          <em>Select a policy template</em>
+                        </MenuItem>
+                        {policies.map((policy) => (
+                          <MenuItem key={policy.id} value={policy.id}>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <span>{policy.name}</span>
+                              {policy.is_default && <Chip label="Default" size="small" color="primary" />}
+                            </Stack>
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                      <Alert severity="info" sx={{ mt: 1, fontSize: '0.75rem' }}>
+                        Default policy is auto-applied. Select a different template or customize below.
+                      </Alert>
                   </Grid>
                   <Grid item xs={12}>
                       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>

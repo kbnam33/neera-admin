@@ -1,13 +1,16 @@
 import { Edit, ListButton, RefreshButton, DeleteButton } from "@refinedev/mui";
-import { Box, TextField, Button, Typography, Paper, Grid, Stack, Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, IconButton, InputAdornment } from "@mui/material";
+import { Box, TextField, Button, Typography, Paper, Grid, Stack, Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, IconButton, InputAdornment, MenuItem, Chip, Alert, Divider, Menu } from "@mui/material";
 import { useForm } from "@refinedev/react-hook-form";
+import { Controller } from "react-hook-form";
 import SaveIcon from '@mui/icons-material/Save';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CloseIcon from '@mui/icons-material/Close';
+import PublishedWithChangesIcon from '@mui/icons-material/PublishedWithChanges';
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useResource } from "@refinedev/core";
+import { useResource, useNotification } from "@refinedev/core";
 import { useList } from "@refinedev/core";
+import { supabaseAdminClient } from "../../supabase";
 
 // --- Copy Fabric Modal ---
 const CopyFabricModal = ({ open, onClose, fabrics, onSelectFabric }) => {
@@ -47,15 +50,18 @@ const CopyFabricModal = ({ open, onClose, fabrics, onSelectFabric }) => {
 export const FabricEdit = () => {
   const { id: fabricId } = useParams();
   const { resource } = useResource();
+  const { open: openNotification } = useNotification();
 
   const {
     saveButtonProps,
     refineCore: { queryResult, onFinish },
+    control,
     register,
     formState: { errors, isDirty },
     reset,
     setValue,
     handleSubmit,
+    watch,
   } = useForm({
     refineCoreProps: {
       action: "edit",
@@ -68,7 +74,6 @@ export const FabricEdit = () => {
       description: "",
       care_instructions: "",
       shipping_returns: "",
-      // image_url field is no longer needed here
     },
   });
 
@@ -76,6 +81,9 @@ export const FabricEdit = () => {
   const isFormLoading = queryResult?.isLoading;
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
   const [copyTargetField, setCopyTargetField] = useState(null);
+  const [policies, setPolicies] = useState([]);
+  const [bulkApplyMenuAnchor, setBulkApplyMenuAnchor] = useState(null);
+  const [isBulkApplying, setIsBulkApplying] = useState(false);
 
   const { data: fabricsResponse } = useList({
     resource: "fabrics",
@@ -84,6 +92,26 @@ export const FabricEdit = () => {
     meta: { select: "id,name,description,care_instructions,shipping_returns,default_price" },
   });
   const fabrics = (fabricsResponse?.data || []).filter(f => f.id !== Number(fabricId));
+
+  // Fetch policies
+  useEffect(() => {
+    const fetchPolicies = async () => {
+      try {
+        const { data, error } = await supabaseAdminClient
+          .from("shipping_policies")
+          .select("*")
+          .order("is_default", { ascending: false })
+          .order("name", { ascending: true });
+
+        if (error) throw error;
+        setPolicies(data || []);
+      } catch (error) {
+        console.error("Error fetching policies:", error);
+      }
+    };
+
+    fetchPolicies();
+  }, []);
 
   const handleOpenCopyModal = (fieldName) => {
     setCopyTargetField(fieldName);
@@ -104,6 +132,79 @@ export const FabricEdit = () => {
       }
     }
     handleCloseCopyModal();
+  };
+
+  const handleOpenBulkApplyMenu = (event) => {
+    setBulkApplyMenuAnchor(event.currentTarget);
+  };
+  const handleCloseBulkApplyMenu = () => {
+    setBulkApplyMenuAnchor(null);
+  };
+
+  const handleBulkApply = async (applyToAll = false) => {
+    handleCloseBulkApplyMenu();
+    const fabricName = watch("name");
+    const shippingReturns = watch("shipping_returns");
+
+    if (!shippingReturns || shippingReturns.trim() === "") {
+      openNotification?.({
+        type: "error",
+        message: "No Content to Apply",
+        description: "The Shipping & Returns field is empty. Please add content before applying.",
+      });
+      return;
+    }
+
+    const confirmMessage = applyToAll
+      ? `Apply this fabric's Shipping & Returns policy to ALL products?\n\nThis will update the shipping & returns field for every product in your database.`
+      : `Apply this fabric's Shipping & Returns policy to all products of "${fabricName}" fabric?\n\nThis will update all products with fabric type "${fabricName}".`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsBulkApplying(true);
+
+    try {
+      let updatedCount = 0;
+
+      if (applyToAll) {
+        // Apply to all products
+        const { data, error } = await supabaseAdminClient
+          .from("products")
+          .update({ shipping_returns: shippingReturns })
+          .neq("id", 0) // Update all
+          .select();
+
+        if (error) throw error;
+        updatedCount = data?.length || 0;
+      } else {
+        // Apply only to products of this fabric type
+        const { data, error } = await supabaseAdminClient
+          .from("products")
+          .update({ shipping_returns: shippingReturns })
+          .eq("fabric_type", fabricName)
+          .select();
+
+        if (error) throw error;
+        updatedCount = data?.length || 0;
+      }
+
+      openNotification?.({
+        type: "success",
+        message: "Bulk Apply Successful",
+        description: `Updated shipping & returns for ${updatedCount} product${updatedCount !== 1 ? 's' : ''}`,
+      });
+    } catch (error) {
+      console.error("Error bulk applying:", error);
+      openNotification?.({
+        type: "error",
+        message: "Bulk Apply Failed",
+        description: error.message,
+      });
+    } finally {
+      setIsBulkApplying(false);
+    }
   };
 
   useEffect(() => {
@@ -192,6 +293,61 @@ export const FabricEdit = () => {
                         }}
                       />
                   </Grid>
+                  <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Shipping Policy Template</Typography>
+                      <TextField
+                        select
+                        fullWidth
+                        margin="none"
+                        variant="outlined"
+                        size="small"
+                        value=""
+                        onChange={(e) => {
+                          const policyId = e.target.value;
+                          if (policyId) {
+                            const policy = policies.find(p => p.id === policyId);
+                            if (policy) {
+                              setValue("shipping_returns", policy.content || "", { shouldDirty: true });
+                            }
+                          }
+                        }}
+                        SelectProps={{
+                          displayEmpty: true,
+                        }}
+                      >
+                        <MenuItem value="">
+                          <em>Select a policy template to apply</em>
+                        </MenuItem>
+                        {policies.map((policy) => (
+                          <MenuItem key={policy.id} value={policy.id}>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <span>{policy.name}</span>
+                              {policy.is_default && <Chip label="Default" size="small" color="primary" />}
+                            </Stack>
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                      <Alert severity="info" sx={{ mt: 1, fontSize: '0.75rem' }}>
+                        Select a template to populate the Shipping & Returns field below. You can then customize the text.
+                      </Alert>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Quick Actions</Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        color="primary"
+                        startIcon={<PublishedWithChangesIcon />}
+                        onClick={handleOpenBulkApplyMenu}
+                        disabled={isBulkApplying}
+                        fullWidth
+                      >
+                        {isBulkApplying ? 'Applying...' : 'Apply to Products'}
+                      </Button>
+                      <Alert severity="info" sx={{ mt: 1, fontSize: '0.75rem' }}>
+                        Apply this fabric's shipping & returns policy to its products.
+                      </Alert>
+                  </Grid>
                   <Grid item xs={12}>
                       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
                         <Typography variant="body2" fontWeight={600} color="text.secondary">Details & Craftsmanship (default)</Typography>
@@ -229,6 +385,33 @@ export const FabricEdit = () => {
         fabrics={fabrics}
         onSelectFabric={handleSelectFabricToCopy}
       />
+      
+      {/* Bulk Apply Menu */}
+      <Menu
+        anchorEl={bulkApplyMenuAnchor}
+        open={Boolean(bulkApplyMenuAnchor)}
+        onClose={handleCloseBulkApplyMenu}
+      >
+        <MenuItem
+          onClick={() => handleBulkApply(false)}
+          disabled={isBulkApplying}
+        >
+          <ListItemText
+            primary="Apply to Products of This Fabric"
+            secondary={`Updates products with fabric type "${watch("name")}"`}
+          />
+        </MenuItem>
+        <Divider />
+        <MenuItem
+          onClick={() => handleBulkApply(true)}
+          disabled={isBulkApplying}
+        >
+          <ListItemText
+            primary="Apply to All Products"
+            secondary="Updates every product in the database"
+          />
+        </MenuItem>
+      </Menu>
       </Edit>
     </>
   );
