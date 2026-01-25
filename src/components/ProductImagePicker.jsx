@@ -46,7 +46,7 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages, excludeImage
     const [rootImages, setRootImages] = useState([]);
     const [rootOffset, setRootOffset] = useState(0);
     const [hasMoreRoot, setHasMoreRoot] = useState(true);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false); // Changed from true to false initially
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [filter, setFilter] = useState("");
     const [view, setView] = useState('list'); // 'list' or 'images'
@@ -132,6 +132,12 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages, excludeImage
 
     // Extract fetchData as a callable function - returns the unorganized images data (optimized with cache)
     const fetchData = useCallback(async (updateCurrentView = false, forceRefresh = false) => {
+        // Prevent multiple simultaneous fetches
+        if (isLoading || isRefreshing) {
+            console.log("[ProductImagePicker] Fetch already in progress, skipping...");
+            return [];
+        }
+        
         if (updateCurrentView) {
             setIsRefreshing(true);
         } else {
@@ -139,16 +145,25 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages, excludeImage
         }
         
         try {
+            console.log("[ProductImagePicker] Starting fetchData...");
+            
             // Fetch products with names for display
             const { data: productsWithNames, error: namesError } = await supabaseAdminClient
                 .from('products')
                 .select('id, name, images')
                 .order('name', { ascending: true });
             
-            if (namesError) throw namesError;
+            if (namesError) {
+                console.error("[ProductImagePicker] Error fetching products:", namesError);
+                throw namesError;
+            }
+            
+            console.log("[ProductImagePicker] Fetched products:", productsWithNames?.length || 0);
             
             // Fetch ALL unorganized images (with excludeImages filtering)
             const allUnorganized = await fetchAllUnorganizedImages(forceRefresh);
+            
+            console.log("[ProductImagePicker] Unorganized images:", allUnorganized?.length || 0);
 
             setProducts((productsWithNames || []).filter(p => p.images && p.images.length > 0));
             setAllRootImages(allUnorganized);
@@ -166,17 +181,18 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages, excludeImage
                 });
             }
 
+            console.log("[ProductImagePicker] fetchData complete");
             return allUnorganized;
 
         } catch (error) {
-            console.error("Error fetching data for picker:", error);
-            alert("Failed to load products and images.");
+            console.error("[ProductImagePicker] Error fetching data for picker:", error);
+            alert("Failed to load products and images. Please check the console for details.");
             return [];
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, [fetchAllUnorganizedImages]);
+    }, [fetchAllUnorganizedImages, isLoading, isRefreshing]);
 
     useEffect(() => {
         if (!open) {
@@ -195,8 +211,21 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages, excludeImage
         pickerUsedImagesCache = null;
         pickerCacheTimestamp = null;
         
-        fetchData(false, true); // Force refresh to get latest data
-    }, [open, fetchData]);
+        // Call fetchData directly without adding it to dependencies to avoid infinite loop
+        const loadData = async () => {
+            try {
+                console.log("[ProductImagePicker] Modal opened, starting initial fetch...");
+                await fetchData(false, true);
+            } catch (error) {
+                console.error("[ProductImagePicker] Error in initial fetch:", error);
+                alert("Failed to load images. Please refresh and try again.");
+            }
+        };
+        
+        loadData();
+        
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]); // Only depend on 'open', not 'fetchData'
 
     // When switching to images view or changing selected item, reset window
     useEffect(() => {
@@ -316,11 +345,11 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages, excludeImage
             </DialogTitle>
 
             <DialogContent dividers sx={{ minHeight: '60vh', bgcolor: 'background.default' }} onScroll={handleScroll}>
-                {isLoading || isLoadingAllRoot ? (
+                {isLoading ? (
                     <Box sx={{ textAlign: 'center', py: 4 }}>
-                        <Typography gutterBottom>Loading images...</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                            {isLoadingAllRoot ? 'Fetching all unorganized images...' : 'Loading...'}
+                        <Typography variant="h6" gutterBottom>Loading...</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Fetching products and images...
                         </Typography>
                     </Box>
                 ) : (
@@ -353,7 +382,14 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages, excludeImage
                                         </ListItemButton>
                                     )}
                                     {filteredProducts.length === 0 && allRootImages.length === 0 ? (
-                                        <ListItemText primary="No products with images found." sx={{ textAlign: 'center', color: 'text.secondary' }} />
+                                        <Box sx={{ textAlign: 'center', py: 4 }}>
+                                            <Typography variant="body1" color="text.secondary">
+                                                No images found
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                                Upload images to the product-images bucket or add images to products
+                                            </Typography>
+                                        </Box>
                                     ) : (
                                         filteredProducts.map((product) => (
                                             <ListItemButton key={product.id} onClick={() => handleSelectProduct(product)}>
@@ -370,6 +406,7 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages, excludeImage
 
                         {/* --- View 2: Image Grid --- */}
                         {view === 'images' && selectedItem && (
+                            selectedItem.images && selectedItem.images.length > 0 ? (
                             <Grid container spacing={1.5}>
                                 {selectedItem.images.slice(0, visibleCount).map((img, index) => {
                                     const imgUrl = typeof img === 'string' ? img : img.url;
@@ -426,6 +463,13 @@ export const ProductImagePicker = ({ open, onClose, onSelectImages, excludeImage
                                     </Grid>
                                 )})}
                             </Grid>
+                            ) : (
+                                <Box sx={{ textAlign: 'center', py: 4 }}>
+                                    <Typography variant="body1" color="text.secondary">
+                                        No images available
+                                    </Typography>
+                                </Box>
+                            )
                         )}
                     </>
                 )}
