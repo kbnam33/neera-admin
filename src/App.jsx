@@ -35,7 +35,10 @@ import { CustomerList } from "./pages/customers/list";
 import { CustomerShow } from "./pages/customers/show";
 import { ImageList } from "./pages/images/list";
 import { PolicyList } from "./pages/policies/list";
-import { TShirt, Rows, ShoppingCart, Users, ImageSquare, FileText } from "phosphor-react";
+import { PrintList } from "./pages/prints/list";
+import { PrintCreate } from "./pages/prints/create";
+import { PrintEdit } from "./pages/prints/edit";
+import { TShirt, Rows, ShoppingCart, Users, ImageSquare, FileText, Palette } from "phosphor-react";
 
 // Initialize providers with the correct clients
 const dataProviderInstance = dataProvider(supabaseAdminClient);
@@ -72,6 +75,13 @@ function App() {
                     create: "/fabrics/create",
                     edit: "/fabrics/edit/:id",
                     meta: { canDelete: true, icon: <Rows /> },
+                  },
+                  {
+                    name: "prints",
+                    list: "/prints",
+                    create: "/prints/create",
+                    edit: "/prints/edit/:id",
+                    meta: { canDelete: true, icon: <Palette />, label: "Print Types" },
                   },
                   {
                     name: "images",
@@ -127,6 +137,11 @@ function App() {
                       <Route index element={<FabricList />} />
                       <Route path="create" element={<FabricCreate />} />
                       <Route path="edit/:id" element={<FabricEdit />} />
+                    </Route>
+                    <Route path="/prints">
+                      <Route index element={<PrintList />} />
+                      <Route path="create" element={<PrintCreate />} />
+                      <Route path="edit/:id" element={<PrintEdit />} />
                     </Route>
                     <Route path="/images">
                       <Route index element={<ImageList />} />

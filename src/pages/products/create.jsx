@@ -97,6 +97,8 @@ export const ProductCreate = () => {
       shipping_returns: "",
       price: null,
       fabric_type: "",
+      print_id: null,
+      print_type: "",
       images: [],
     },
   });
@@ -140,6 +142,7 @@ export const ProductCreate = () => {
   const images = useWatch({ control, name: "images" });
   const watchedFabricType = useWatch({ control, name: "fabric_type" });
   const { autocompleteProps } = useAutocomplete({ resource: "fabrics" });
+  const { autocompleteProps: printAutocompleteProps } = useAutocomplete({ resource: "prints" });
 
   // Auto-update shipping returns when fabric changes
   useEffect(() => {
@@ -394,6 +397,41 @@ export const ProductCreate = () => {
                                             variant="outlined" 
                                             error={!!errors.fabric_type} 
                                             helperText={errors.fabric_type?.message} 
+                                        /> 
+                                    )}
+                                />
+                              );
+                          }}
+                      />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Print Type</Typography>
+                      <Controller
+                          control={control} name="print_id" rules={{ required: "This field is required" }}
+                          render={({ field }) => {
+                              const options = printAutocompleteProps.options || [];
+                              const selectedOption = options.find(option => option.id === field.value) || null;
+                              
+                              return (
+                                <Autocomplete
+                                    {...printAutocompleteProps}
+                                    options={options} 
+                                    value={selectedOption} 
+                                    getOptionLabel={(option) => option.name || ""}
+                                    isOptionEqualToValue={(option, value) => option.id === value?.id} 
+                                    onChange={(_, newValue) => {
+                                        // Update both print_id (primary) and print_type (legacy, synced)
+                                        field.onChange(newValue?.id || null);
+                                        setValue("print_type", newValue?.name || "", { shouldDirty: true });
+                                    }} 
+                                    renderInput={(params) => ( 
+                                        <TextField 
+                                            {...params} 
+                                            margin="none" 
+                                            variant="outlined" 
+                                            error={!!errors.print_id} 
+                                            helperText={errors.print_id?.message} 
+                                            placeholder="Select a print type"
                                         /> 
                                     )}
                                 />
