@@ -57,34 +57,175 @@ export const OrderShow = () => {
                 <Grid item xs={12} md={8}>
                     <Paper sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h6" gutterBottom>Products</Typography>
-                        <Stack divider={<Divider flexItem />} spacing={2}>
-                            {record?.products?.map((product) => (
-                                <Box key={product.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="body1">{product.name}</Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                        {`₹${Number(product.price).toFixed(2)}`}
-                                    </Typography>
+                        <Stack divider={<Divider flexItem />} spacing={3}>
+                            {record?.products?.map((product, index) => (
+                                <Box key={product.id || index}>
+                                    <Grid container spacing={2}>
+                                        <Grid item xs={12} sm={3}>
+                                            <Box
+                                                sx={{
+                                                    width: '100%',
+                                                    paddingTop: '100%',
+                                                    position: 'relative',
+                                                    borderRadius: 2,
+                                                    overflow: 'hidden',
+                                                    backgroundColor: 'grey.100',
+                                                }}
+                                            >
+                                                <img
+                                                    src={product.images?.[0] || '/placeholder.png'}
+                                                    alt={product.name}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        top: 0,
+                                                        left: 0,
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        objectFit: 'cover',
+                                                    }}
+                                                    onError={(e) => {
+                                                        e.target.src = '/placeholder.png';
+                                                    }}
+                                                />
+                                            </Box>
+                                        </Grid>
+                                        <Grid item xs={12} sm={9}>
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+                                                <Box>
+                                                    <Typography variant="h6" gutterBottom>
+                                                        {product.name}
+                                                    </Typography>
+                                                    {product.fabric_type && (
+                                                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                                                            Fabric: {product.fabric_type}
+                                                        </Typography>
+                                                    )}
+                                                    {product.slug && (
+                                                        <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                                                            SKU: {product.slug}
+                                                        </Typography>
+                                                    )}
+                                                </Box>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+                                                    <Box>
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            Quantity: {product.quantity || 1}
+                                                        </Typography>
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            Price: ₹{Number(product.price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Typography variant="h6" color="primary">
+                                                        ₹{(Number(product.price) * (product.quantity || 1)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                    </Typography>
+                                                </Box>
+                                            </Box>
+                                        </Grid>
+                                    </Grid>
                                 </Box>
                             ))}
                         </Stack>
-                        <Divider sx={{ my: 2 }}/>
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <Typography variant="h6">Total: ₹{Number(record?.total_price).toFixed(2)}</Typography>
+                        <Divider sx={{ my: 3 }}/>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: 300 }}>
+                                <Typography variant="body1" color="text.secondary">
+                                    Subtotal:
+                                </Typography>
+                                <Typography variant="body1">
+                                    ₹{Number(record?.total_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: 300 }}>
+                                <Typography variant="body1" color="text.secondary">
+                                    Shipping:
+                                </Typography>
+                                <Typography variant="body1">
+                                    Free
+                                </Typography>
+                            </Box>
+                            <Divider sx={{ width: '100%', maxWidth: 300, my: 1 }} />
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: 300 }}>
+                                <Typography variant="h6">
+                                    Total:
+                                </Typography>
+                                <Typography variant="h6" color="primary">
+                                    ₹{Number(record?.total_price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </Typography>
+                            </Box>
                         </Box>
                     </Paper>
                 </Grid>
                 <Grid item xs={12} md={4}>
                     <Stack spacing={3}>
                         <Paper sx={{ p: 3 }}>
-                             <Typography variant="h6" gutterBottom>Order Status</Typography>
-                             <OrderStatus status={record?.order_status} />
+                            <Typography variant="h6" gutterBottom>Order Information</Typography>
+                            <Stack spacing={1.5}>
+                                <Box>
+                                    <Typography variant="caption" color="text.secondary">Order ID</Typography>
+                                    <Typography variant="body2" fontWeight={500}>#{record?.id}</Typography>
+                                </Box>
+                                <Box>
+                                    <Typography variant="caption" color="text.secondary">Order Date</Typography>
+                                    <Typography variant="body2">
+                                        {record?.created_at ? new Date(record.created_at).toLocaleString('en-IN', {
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        }) : 'N/A'}
+                                    </Typography>
+                                </Box>
+                                <Box>
+                                    <Typography variant="caption" color="text.secondary">Status</Typography>
+                                    <Box sx={{ mt: 0.5 }}>
+                                        <OrderStatus status={record?.order_status} />
+                                    </Box>
+                                </Box>
+                                <Box>
+                                    <Typography variant="caption" color="text.secondary">Payment Status</Typography>
+                                    <Typography variant="body2">
+                                        <Chip 
+                                            label={record?.payment_status === 'paid' ? 'Paid' : 'Pending'} 
+                                            color={record?.payment_status === 'paid' ? 'success' : 'warning'}
+                                            size="small"
+                                            sx={{ mt: 0.5 }}
+                                        />
+                                    </Typography>
+                                </Box>
+                                {record?.razorpay_payment_id && (
+                                    <Box>
+                                        <Typography variant="caption" color="text.secondary">Payment ID</Typography>
+                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                                            {record.razorpay_payment_id}
+                                        </Typography>
+                                    </Box>
+                                )}
+                            </Stack>
                         </Paper>
                         <Paper sx={{ p: 3 }}>
-                            <Typography variant="h6" gutterBottom>Shipping Details</Typography>
-                            <Typography variant="body1" fontWeight="500">{record?.shipping_address?.name}</Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                {`${record?.shipping_address?.address || ''}, ${record?.shipping_address?.city || ''}, ${record?.shipping_address?.state || ''}`}
-                            </Typography>
+                            <Typography variant="h6" gutterBottom>Shipping Address</Typography>
+                            <Stack spacing={1}>
+                                <Typography variant="body1" fontWeight="500">
+                                    {record?.shipping_address?.name}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    {record?.shipping_address?.address}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    {record?.shipping_address?.city}, {record?.shipping_address?.state} {record?.shipping_address?.postalCode}
+                                </Typography>
+                                {record?.shipping_address?.phone && (
+                                    <Typography variant="body2" color="text.secondary">
+                                        Phone: {record.shipping_address.phone}
+                                    </Typography>
+                                )}
+                                {record?.shipping_address?.email && (
+                                    <Typography variant="body2" color="text.secondary">
+                                        Email: {record.shipping_address.email}
+                                    </Typography>
+                                )}
+                            </Stack>
                         </Paper>
                          <Paper sx={{ p: 3 }}>
                             <Typography variant="h6" gutterBottom>Shipment Tracking</Typography>

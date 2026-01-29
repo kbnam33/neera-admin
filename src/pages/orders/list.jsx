@@ -151,6 +151,62 @@ export const OrderList = () => {
         renderCell: (params) => <Typography variant="body2">{params.row.shipping_address?.name || "N/A"}</Typography>,
       },
       {
+        field: "products",
+        headerName: "Products",
+        minWidth: 200,
+        sortable: false,
+        renderCell: (params) => {
+          const products = params.row.products || [];
+          const displayCount = Math.min(4, products.length);
+          const remainingCount = products.length - displayCount;
+          
+          if (products.length === 0) {
+            return <Typography variant="caption" color="text.secondary">No products</Typography>;
+          }
+
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Box sx={{ display: 'flex', position: 'relative', height: 40 }}>
+                {products.slice(0, displayCount).map((product, index) => (
+                  <Box
+                    key={index}
+                    sx={{
+                      position: 'relative',
+                      width: 40,
+                      height: 40,
+                      marginLeft: index > 0 ? '-12px' : 0,
+                      border: '2px solid white',
+                      borderRadius: '6px',
+                      overflow: 'hidden',
+                      boxShadow: 1,
+                      zIndex: displayCount - index,
+                    }}
+                  >
+                    <img
+                      src={product.images?.[0] || '/placeholder.png'}
+                      alt={product.name}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                      onError={(e) => {
+                        e.target.src = '/placeholder.png';
+                      }}
+                    />
+                  </Box>
+                ))}
+              </Box>
+              {remainingCount > 0 && (
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                  +{remainingCount} more
+                </Typography>
+              )}
+            </Box>
+          );
+        },
+      },
+      {
         field: "total_price",
         headerName: "Total (₹)",
         minWidth: 120,
@@ -229,7 +285,7 @@ export const OrderList = () => {
           columns={columns}
           sortModel={sortModel}
           sortingMode="server"
-          rowHeight={64}
+          rowHeight={80}
           disableRowSelectionOnClick
           onRowClick={(params) => navigate(`/orders/show/${params.id}`)}
         />
