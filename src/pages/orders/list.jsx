@@ -20,6 +20,35 @@ const OrderStatus = ({ status }) => {
   return <Chip label={status || 'N/A'} color={color} size="small" sx={{ minWidth: '80px' }} />;
 };
 
+// --- Payment Status Chip Component ---
+const PaymentStatus = ({ status }) => {
+  const normalized = (status || "pending").toLowerCase();
+  let color;
+  let label;
+
+  switch (normalized) {
+    case "paid":
+      color = "success";
+      label = "Paid";
+      break;
+    case "failed":
+      color = "error";
+      label = "Failed";
+      break;
+    case "refunded":
+      color = "info";
+      label = "Refunded";
+      break;
+    case "pending":
+    default:
+      color = "warning";
+      label = "Pending";
+      break;
+  }
+
+  return <Chip label={label} color={color} size="small" sx={{ minWidth: "92px" }} />;
+};
+
 // --- Inline Status Select Component ---
 const StatusSelect = ({ orderId, currentStatus }) => {
     const { mutate } = useUpdate();
@@ -213,6 +242,13 @@ export const OrderList = () => {
         renderCell: (params) => Number(params.value).toLocaleString('en-IN', {
             minimumFractionDigits: 2, maximumFractionDigits: 2,
         }),
+      },
+      {
+        field: "payment_status",
+        headerName: "Payment",
+        minWidth: 120,
+        sortable: false,
+        renderCell: (params) => <PaymentStatus status={params.value} />,
       },
       {
         field: "order_status",
