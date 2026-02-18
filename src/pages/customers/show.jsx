@@ -1,6 +1,6 @@
 import { useShow } from "@refinedev/core";
 import { Show, ListButton } from "@refinedev/mui";
-import { Box, Typography, Paper, Grid, Stack } from "@mui/material";
+import { Alert, Box, Typography, Paper, Grid, Stack } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import { useMemo, useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -88,6 +88,18 @@ export const CustomerShow = () => {
           sortable: false,
         },
         { field: "order_status", headerName: "Status", minWidth: 120 },
+        {
+            field: "payment_status",
+            headerName: "Payment",
+            minWidth: 120,
+            renderCell: (params) => {
+              const status = (params.value || "pending").toLowerCase();
+              if (status === "paid") return "Paid";
+              if (status === "failed") return "Failed";
+              if (status === "refunded") return "Refunded";
+              return "Pending";
+            }
+        },
         { 
             field: "total_price", 
             headerName: "Total (₹)", 
@@ -97,6 +109,21 @@ export const CustomerShow = () => {
             renderCell: (params) => `₹${Number(params.value).toFixed(2)}`
         },
     ], []);
+
+    const completedOrders = useMemo(
+      () => orderHistory.filter((order) => (order.payment_status || "pending").toLowerCase() === "paid"),
+      [orderHistory]
+    );
+
+    const abandonedOrders = useMemo(
+      () => orderHistory.filter((order) => (order.payment_status || "pending").toLowerCase() === "pending"),
+      [orderHistory]
+    );
+
+    const completedTotalSpent = useMemo(
+      () => completedOrders.reduce((sum, order) => sum + Number(order.total_price || 0), 0),
+      [completedOrders]
+    );
     
     const primaryAddress = customer?.raw_user_meta_data?.address;
 
@@ -114,10 +141,11 @@ export const CustomerShow = () => {
                             <Stack spacing={2.5} sx={{ mt: 3 }}>
                                 <DetailItem label="Name" value={customer?.name || 'Not provided'} />
                                 <DetailItem label="Email" value={customer?.email} />
-                                <DetailItem label="Total Orders" value={customer?.total_orders || 0} />
+                                <DetailItem label="Completed Orders" value={completedOrders.length} />
+                                <DetailItem label="Abandoned Checkouts" value={abandonedOrders.length} />
                                 <DetailItem 
                                     label="Total Spent" 
-                                    value={`₹${Number(customer?.total_spent || 0).toLocaleString('en-IN', {
+                                    value={`₹${Number(completedTotalSpent || 0).toLocaleString('en-IN', {
                                         minimumFractionDigits: 2, maximumFractionDigits: 2,
                                     })}`} 
                                 />
@@ -133,9 +161,13 @@ export const CustomerShow = () => {
                 </Grid>
                 <Grid item xs={12} md={8}>
                      <Paper sx={{ p: 3, height: '60vh' }}>
-                        <Typography variant="h6" gutterBottom>Order History</Typography>
+                        <Typography variant="h6" gutterBottom>Completed Order History</Typography>
+                        <Alert severity="info" sx={{ mb: 2 }}>
+                            Pending-payment checkouts are treated as abandoned and excluded from completed orders.
+                            Current abandoned count: {abandonedOrders.length}
+                        </Alert>
                         <DataGrid
-                            rows={orderHistory}
+                            rows={completedOrders}
                             columns={orderColumns}
                             loading={isLoadingOrders}
                             autoHeight

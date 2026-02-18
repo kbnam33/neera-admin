@@ -4,6 +4,7 @@ import { Paper, Typography, IconButton, Menu, MenuItem, Box, Stack } from "@mui/
 import { useNavigate } from "react-router-dom";
 import { useMemo, useState, useEffect } from "react";
 import { MoreVert, Visibility } from "@mui/icons-material";
+import { supabaseAdminClient } from "../../supabase";
 
 export const CustomerList = () => {
   const { dataGridProps, setSorters, tableQueryResult } = useDataGrid({ 
@@ -26,6 +27,7 @@ export const CustomerList = () => {
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = useState(null);
   const [currentRowId, setCurrentRowId] = useState(null);
+  const [customerOrderStats, setCustomerOrderStats] = useState({});
   const open = Boolean(anchorEl);
 
   // Controlled sort model for DataGrid to prevent sort reset on data refetch
@@ -39,6 +41,64 @@ export const CustomerList = () => {
       setSorters([{ field: "id", order: "desc" }]);
     }
   }, [tableQueryResult?.isFetching, tableQueryResult?.data, setSorters]);
+
+  useEffect(() => {
+    const rows = dataGridProps?.rows || [];
+    const userIds = rows.map((row) => row.id).filter(Boolean);
+
+    if (userIds.length === 0) {
+      setCustomerOrderStats({});
+      return;
+    }
+
+    let isMounted = true;
+    const fetchCustomerOrderStats = async () => {
+      try {
+        const { data, error } = await supabaseAdminClient
+          .from("orders")
+          .select("user_id, payment_status, total_price")
+          .in("user_id", userIds);
+
+        if (error) throw error;
+
+        const statsMap = {};
+        for (const userId of userIds) {
+          statsMap[userId] = {
+            completedOrders: 0,
+            abandonedOrders: 0,
+            totalSpent: 0,
+          };
+        }
+
+        for (const order of data || []) {
+          const userId = order.user_id;
+          if (!statsMap[userId]) continue;
+
+          const paymentStatus = (order.payment_status || "pending").toLowerCase();
+          if (paymentStatus === "paid") {
+            statsMap[userId].completedOrders += 1;
+            statsMap[userId].totalSpent += Number(order.total_price || 0);
+          } else if (paymentStatus === "pending") {
+            statsMap[userId].abandonedOrders += 1;
+          }
+        }
+
+        if (isMounted) {
+          setCustomerOrderStats(statsMap);
+        }
+      } catch (error) {
+        console.error("Error fetching customer order stats:", error);
+        if (isMounted) {
+          setCustomerOrderStats({});
+        }
+      }
+    };
+
+    fetchCustomerOrderStats();
+    return () => {
+      isMounted = false;
+    };
+  }, [dataGridProps?.rows]);
 
   const handleClick = (event, id) => {
     event.stopPropagation();
@@ -58,10 +118,26 @@ export const CustomerList = () => {
       { field: "name", headerName: "Name", minWidth: 180, flex: 1 },
       { 
         field: "total_orders", 
-        headerName: "Total Orders", 
+        headerName: "Completed Orders", 
         minWidth: 120,
         align: 'center',
         headerAlign: 'center',
+        renderCell: (params) => {
+          const stats = customerOrderStats[params.row.id];
+          return stats ? stats.completedOrders : 0;
+        },
+      },
+      {
+        field: "abandoned_orders",
+        headerName: "Abandoned",
+        minWidth: 110,
+        align: "center",
+        headerAlign: "center",
+        sortable: false,
+        renderCell: (params) => {
+          const stats = customerOrderStats[params.row.id];
+          return stats ? stats.abandonedOrders : 0;
+        },
       },
       {
         field: "total_spent",
@@ -69,9 +145,13 @@ export const CustomerList = () => {
         minWidth: 150,
         align: 'right',
         headerAlign: 'right',
-        renderCell: (params) => Number(params.value || 0).toLocaleString('en-IN', {
+        renderCell: (params) => {
+          const stats = customerOrderStats[params.row.id];
+          const value = stats ? stats.totalSpent : 0;
+          return Number(value).toLocaleString('en-IN', {
             minimumFractionDigits: 2, maximumFractionDigits: 2,
-        }),
+          });
+        },
       },
       {
         field: "actions",
@@ -98,7 +178,7 @@ export const CustomerList = () => {
         ),
       },
     ],
-    [navigate, anchorEl, open, currentRowId]
+    [navigate, anchorEl, open, currentRowId, customerOrderStats]
   );
 
   return (
