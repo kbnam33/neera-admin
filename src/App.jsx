@@ -38,7 +38,8 @@ import { PolicyList } from "./pages/policies/list";
 import { PrintList } from "./pages/prints/list";
 import { PrintCreate } from "./pages/prints/create";
 import { PrintEdit } from "./pages/prints/edit";
-import { TShirt, Rows, ShoppingCart, Users, ImageSquare, FileText, Palette } from "phosphor-react";
+import { DiscountList } from "./pages/discounts/list";
+import { TShirt, Rows, ShoppingCart, Users, ImageSquare, FileText, Palette, Percent } from "phosphor-react";
 
 // Initialize providers with the correct clients
 const dataProviderInstance = dataProvider(supabaseAdminClient);
@@ -105,6 +106,11 @@ function App() {
                     list: "/policies",
                     meta: { canDelete: false, icon: <FileText />, label: "Policies" },
                   },
+                  {
+                    name: "discounts",
+                    list: "/discounts",
+                    meta: { canDelete: false, icon: <Percent />, label: "Discounts" },
+                  },
                 ]}
                 options={{
                   syncWithLocation: true,
@@ -156,6 +162,9 @@ function App() {
                     </Route>
                     <Route path="/policies">
                       <Route index element={<PolicyList />} />
+                    </Route>
+                    <Route path="/discounts">
+                      <Route index element={<DiscountList />} />
                     </Route>
                   </Route>
                   <Route
