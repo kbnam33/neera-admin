@@ -1,15 +1,20 @@
 import { Edit, ListButton, RefreshButton, DeleteButton } from "@refinedev/mui";
-import { Box, TextField, Typography, Paper, Grid, Button, Stack, Chip } from "@mui/material";
+import { Box, TextField, Typography, Paper, Grid, Button, Stack, Chip, Menu, MenuItem, ListItemText } from "@mui/material";
 import { useForm } from "@refinedev/react-hook-form";
 import { useParams } from "react-router-dom";
 import SaveIcon from '@mui/icons-material/Save';
 import { useState, useEffect } from "react";
 import { supabaseAdminClient } from "../../supabase";
+import PublicIcon from '@mui/icons-material/Public';
+import { useNotification } from "@refinedev/core";
 
 export const PrintEdit = () => {
   const { id: printId } = useParams();
   const [productCount, setProductCount] = useState(0);
   const [isLoadingCount, setIsLoadingCount] = useState(true);
+  const [visibilityMenuAnchor, setVisibilityMenuAnchor] = useState(null);
+  const [isVisibilityApplying, setIsVisibilityApplying] = useState(false);
+  const { open: openNotification } = useNotification();
 
   const {
     saveButtonProps,
@@ -88,6 +93,47 @@ export const PrintEdit = () => {
       fetchProductCount();
     }
   }, [printId]);
+
+  const handleOpenVisibilityMenu = (event) => {
+    setVisibilityMenuAnchor(event.currentTarget);
+  };
+
+  const handleCloseVisibilityMenu = () => {
+    setVisibilityMenuAnchor(null);
+  };
+
+  const handleBulkVisibilityUpdate = async (isPublic) => {
+    handleCloseVisibilityMenu();
+
+    const confirmMessage = `Set all products of this print type to ${isPublic ? "Public" : "Private"}?\n\nThis updates website visibility for all products using this print type.`;
+    if (!window.confirm(confirmMessage)) return;
+
+    setIsVisibilityApplying(true);
+    try {
+      const { data, error } = await supabaseAdminClient
+        .from("products")
+        .update({ is_public: isPublic })
+        .eq("print_id", printId)
+        .select("id");
+
+      if (error) throw error;
+
+      openNotification?.({
+        type: "success",
+        message: "Visibility update successful",
+        description: `Updated ${data?.length || 0} product${(data?.length || 0) !== 1 ? "s" : ""} to ${isPublic ? "Public" : "Private"}`,
+      });
+    } catch (error) {
+      console.error("Error updating print product visibility:", error);
+      openNotification?.({
+        type: "error",
+        message: "Visibility update failed",
+        description: error.message,
+      });
+    } finally {
+      setIsVisibilityApplying(false);
+    }
+  };
 
   return (
     <Edit
@@ -195,6 +241,20 @@ export const PrintEdit = () => {
                   The slug is automatically generated from the name and used in URLs
                 </Typography>
               </Grid>
+              <Grid item xs={12}>
+                <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>
+                  Product Visibility Actions
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<PublicIcon />}
+                  onClick={handleOpenVisibilityMenu}
+                  disabled={isVisibilityApplying || productCount === 0}
+                >
+                  {isVisibilityApplying ? "Updating..." : "Set Visibility for This Print's Products"}
+                </Button>
+              </Grid>
 
               {productCount > 0 && (
                 <Grid item xs={12}>
@@ -211,6 +271,30 @@ export const PrintEdit = () => {
           </Paper>
         </Box>
       )}
+      <Menu
+        anchorEl={visibilityMenuAnchor}
+        open={Boolean(visibilityMenuAnchor)}
+        onClose={handleCloseVisibilityMenu}
+      >
+        <MenuItem
+          onClick={() => handleBulkVisibilityUpdate(true)}
+          disabled={isVisibilityApplying}
+        >
+          <ListItemText
+            primary="Make Products Public"
+            secondary="Visible on website"
+          />
+        </MenuItem>
+        <MenuItem
+          onClick={() => handleBulkVisibilityUpdate(false)}
+          disabled={isVisibilityApplying}
+        >
+          <ListItemText
+            primary="Make Products Private"
+            secondary="Hidden from website"
+          />
+        </MenuItem>
+      </Menu>
     </Edit>
   );
 };

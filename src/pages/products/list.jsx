@@ -4,11 +4,11 @@ import {
 import { useDataGrid, List, CreateButton, DeleteButton } from "@refinedev/mui";
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
-import { Paper, Typography, Menu, MenuItem, IconButton, Stack, Box, FormControl, InputLabel, Select, Button } from "@mui/material";
+import { Paper, Typography, Menu, MenuItem, IconButton, Stack, Box, FormControl, InputLabel, Select, Button, Chip } from "@mui/material";
 import { MoreVert, Edit, Delete, Add, PlaylistAdd } from "@mui/icons-material";
 import { supabaseAdminClient } from "../../supabase";
 import { ProductReorderDialog } from "../../components/ProductReorderDialog";
-import { useList } from "@refinedev/core";
+import { useList, useNotification } from "@refinedev/core";
 
 export const ProductList = () => {
   const FABRIC_FILTER_STORAGE_KEY = "productFabricFilter";
@@ -38,9 +38,11 @@ export const ProductList = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const { open: openNotification } = useNotification();
   const [anchorEl, setAnchorEl] = useState(null);
   const [currentRowId, setCurrentRowId] = useState(null);
   const open = Boolean(anchorEl);
+  const [updatingVisibilityId, setUpdatingVisibilityId] = useState(null);
   const normalizeOrderMode = (value) => {
     if (!value) return DEFAULT_ORDER_MODE;
     if (value === "created_desc") return DEFAULT_ORDER_MODE; // backward compat
@@ -219,6 +221,34 @@ export const ProductList = () => {
     setCurrentRowId(null);
   };
 
+  const handleSetVisibility = async (id, isPublic) => {
+    setUpdatingVisibilityId(id);
+    try {
+      const { error } = await supabaseAdminClient
+        .from("products")
+        .update({ is_public: isPublic })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      await tableQueryResult?.refetch?.();
+      openNotification?.({
+        type: "success",
+        message: `Product set to ${isPublic ? "Public" : "Private"}`,
+      });
+    } catch (error) {
+      console.error("Failed to update product visibility:", error);
+      openNotification?.({
+        type: "error",
+        message: "Visibility update failed",
+        description: error?.message,
+      });
+    } finally {
+      setUpdatingVisibilityId(null);
+      handleClose();
+    }
+  };
+
   const columns = useMemo(
     () => [
       { field: "id", headerName: "ID", minWidth: 50, align: "left", headerAlign: "left" },
@@ -249,6 +279,21 @@ export const ProductList = () => {
       },
       { field: "fabric_type", headerName: "Fabric", minWidth: 150, align: "left", headerAlign: "left" },
       {
+        field: "is_public",
+        headerName: "Visibility",
+        minWidth: 170,
+        align: "center",
+        headerAlign: "center",
+        renderCell: (params) => (
+          <Chip
+            size="small"
+            label={params.value === false ? "Private" : "Public"}
+            color={params.value === false ? "default" : "success"}
+            variant={params.value === false ? "outlined" : "filled"}
+          />
+        ),
+      },
+      {
         field: "actions",
         headerName: "Actions",
         type: "actions",
@@ -256,7 +301,10 @@ export const ProductList = () => {
         align: "center",
         headerAlign: "center",
         sortable: false,
-        renderCell: ({ id }) => (
+        renderCell: (params) => {
+          const { id, row } = params;
+          const isPublic = row?.is_public !== false;
+          return (
           <Box onClick={(e) => e.stopPropagation()}>
             <IconButton
               aria-label="more"
@@ -283,6 +331,18 @@ export const ProductList = () => {
                 </Stack>
               </MenuItem>
               <MenuItem
+                onClick={() => handleSetVisibility(id, true)}
+                disabled={isPublic || updatingVisibilityId === id}
+              >
+                Set Public
+              </MenuItem>
+              <MenuItem
+                onClick={() => handleSetVisibility(id, false)}
+                disabled={!isPublic || updatingVisibilityId === id}
+              >
+                Set Private
+              </MenuItem>
+              <MenuItem
                 onClick={() => {
                   document.getElementById(`delete-button-${id}`)?.click();
                   handleClose();
@@ -307,10 +367,11 @@ export const ProductList = () => {
                 />
              </Box>
           </Box>
-        ),
+        );
+        },
       },
     ],
-    [navigate, anchorEl, open, currentRowId]
+    [navigate, anchorEl, open, currentRowId, updatingVisibilityId, tableQueryResult, openNotification]
   );
 
   return (

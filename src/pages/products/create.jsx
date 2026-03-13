@@ -1,7 +1,7 @@
 import { Create, useAutocomplete } from "@refinedev/mui";
 import { 
     Box, TextField, Autocomplete, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade, useTheme, 
-    Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, Stack
+    Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, Stack, FormControlLabel, Switch
 } from "@mui/material";
 import { useForm } from "@refinedev/react-hook-form"; // <-- FIX: This is the correct hook
 import { Controller, useFieldArray, useWatch } from "react-hook-form"; // <-- FIX: These come from the base library
@@ -99,6 +99,7 @@ export const ProductCreate = () => {
       fabric_type: "",
       print_id: null,
       print_type: "",
+      is_public: true,
       images: [],
     },
   });
@@ -370,6 +371,24 @@ export const ProductCreate = () => {
                   <Grid item xs={12} sm={6}>
                       <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Price (in ₹)</Typography>
                       <TextField {...register("price", { required: "This field is required", valueAsNumber: true })} error={!!errors.price} helperText={errors.price?.message} margin="none" fullWidth type="number" name="price" variant="outlined" />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Website Visibility</Typography>
+                      <Controller
+                          control={control}
+                          name="is_public"
+                          render={({ field }) => (
+                              <FormControlLabel
+                                  control={
+                                      <Switch
+                                          checked={Boolean(field.value)}
+                                          onChange={(_, checked) => field.onChange(checked)}
+                                      />
+                                  }
+                                  label={field.value ? "Public (visible on website)" : "Private (hidden from website)"}
+                              />
+                          )}
+                      />
                   </Grid>
                   <Grid item xs={12} sm={6}>
                       <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Fabric</Typography>

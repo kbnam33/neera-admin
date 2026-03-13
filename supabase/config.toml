@@ -1,0 +1,11 @@
+[functions.internal-get-products]
+verify_jwt = false
+
+[functions.internal-replace-product-images]
+verify_jwt = false
+
+[functions.internal-upload-image]
+verify_jwt = false
+
+[functions.internal-get-product-images]
+verify_jwt = false

@@ -1,7 +1,7 @@
 import { Edit, useAutocomplete, ListButton, RefreshButton, DeleteButton } from "@refinedev/mui";
 import { 
     Box, TextField, Autocomplete, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade, Stack,
-    Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText 
+    Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, FormControlLabel, Switch
 } from "@mui/material";
 import { useForm } from "@refinedev/react-hook-form";
 import { Controller, useFieldArray, useWatch } from "react-hook-form";
@@ -173,6 +173,7 @@ export const ProductEdit = () => {
             fabric_type: productData.fabric_type || "",
             print_id: productData.print_id ?? null,
             print_type: productData.print_type || "",
+            is_public: productData.is_public ?? true,
             images: productData.images || [] 
         };
         reset(defaultValues); 
@@ -450,6 +451,24 @@ export const ProductEdit = () => {
                           <ContentCopyIcon fontSize="small" />
                       </IconButton>
                     </Box>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Website Visibility</Typography>
+                    <Controller
+                      name="is_public"
+                      control={control}
+                      render={({ field }) => (
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={Boolean(field.value)}
+                              onChange={(_, checked) => field.onChange(checked)}
+                            />
+                          }
+                          label={field.value ? "Public (visible on website)" : "Private (hidden from website)"}
+                        />
+                      )}
+                    />
                   </Grid>
 
                    <Grid item xs={12} sm={6}>

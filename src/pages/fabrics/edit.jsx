@@ -1,11 +1,12 @@
 import { Edit, ListButton, RefreshButton, DeleteButton } from "@refinedev/mui";
-import { Box, TextField, Button, Typography, Paper, Grid, Stack, Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, IconButton, InputAdornment, MenuItem, Chip, Alert, Divider, Menu } from "@mui/material";
+import { Box, TextField, Button, Typography, Paper, Grid, Stack, Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, IconButton, InputAdornment, MenuItem, Chip, Alert, Divider, Menu, FormControlLabel, Switch } from "@mui/material";
 import { useForm } from "@refinedev/react-hook-form";
 import { Controller } from "react-hook-form";
 import SaveIcon from '@mui/icons-material/Save';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CloseIcon from '@mui/icons-material/Close';
 import PublishedWithChangesIcon from '@mui/icons-material/PublishedWithChanges';
+import PublicIcon from '@mui/icons-material/Public';
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useResource, useNotification } from "@refinedev/core";
@@ -84,6 +85,9 @@ export const FabricEdit = () => {
   const [policies, setPolicies] = useState([]);
   const [bulkApplyMenuAnchor, setBulkApplyMenuAnchor] = useState(null);
   const [isBulkApplying, setIsBulkApplying] = useState(false);
+  const [visibilityMenuAnchor, setVisibilityMenuAnchor] = useState(null);
+  const [isVisibilityApplying, setIsVisibilityApplying] = useState(false);
+  const [fabricVisibilityColumn, setFabricVisibilityColumn] = useState(null); // "is_public" | "visibility" | null
 
   const { data: fabricsResponse } = useList({
     resource: "fabrics",
@@ -113,6 +117,27 @@ export const FabricEdit = () => {
     fetchPolicies();
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+    const detectVisibilityColumn = async () => {
+      const isPublicCheck = await supabaseAdminClient.from("fabrics").select("is_public").limit(1);
+      if (!isPublicCheck.error) {
+        if (isMounted) setFabricVisibilityColumn("is_public");
+        return;
+      }
+
+      const visibilityCheck = await supabaseAdminClient.from("fabrics").select("visibility").limit(1);
+      if (!visibilityCheck.error && isMounted) {
+        setFabricVisibilityColumn("visibility");
+      }
+    };
+
+    detectVisibilityColumn();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleOpenCopyModal = (fieldName) => {
     setCopyTargetField(fieldName);
     setIsCopyModalOpen(true);
@@ -139,6 +164,12 @@ export const FabricEdit = () => {
   };
   const handleCloseBulkApplyMenu = () => {
     setBulkApplyMenuAnchor(null);
+  };
+  const handleOpenVisibilityMenu = (event) => {
+    setVisibilityMenuAnchor(event.currentTarget);
+  };
+  const handleCloseVisibilityMenu = () => {
+    setVisibilityMenuAnchor(null);
   };
 
   const handleBulkApply = async (applyToAll = false) => {
@@ -207,6 +238,47 @@ export const FabricEdit = () => {
     }
   };
 
+  const handleBulkVisibilityApply = async (isPublic, applyToAll = false) => {
+    handleCloseVisibilityMenu();
+    const fabricName = watch("name");
+
+    const confirmMessage = applyToAll
+      ? `Set ALL products to ${isPublic ? "Public" : "Private"}?\n\nThis will change website visibility for every product.`
+      : `Set all "${fabricName}" fabric products to ${isPublic ? "Public" : "Private"}?\n\nOnly products with fabric type "${fabricName}" will be updated.`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsVisibilityApplying(true);
+
+    try {
+      let query = supabaseAdminClient
+        .from("products")
+        .update({ is_public: isPublic });
+
+      query = applyToAll ? query.neq("id", 0) : query.eq("fabric_type", fabricName);
+      const { data, error } = await query.select("id");
+
+      if (error) throw error;
+
+      openNotification?.({
+        type: "success",
+        message: "Visibility update successful",
+        description: `Updated ${data?.length || 0} product${(data?.length || 0) !== 1 ? "s" : ""} to ${isPublic ? "Public" : "Private"}`,
+      });
+    } catch (error) {
+      console.error("Error updating product visibility:", error);
+      openNotification?.({
+        type: "error",
+        message: "Visibility update failed",
+        description: error.message,
+      });
+    } finally {
+      setIsVisibilityApplying(false);
+    }
+  };
+
   useEffect(() => {
     if (fabricData && !isDirty) {
       reset(fabricData);
@@ -216,6 +288,16 @@ export const FabricEdit = () => {
   // Handle save by stripping 'id' and 'created_at'
   const handleSave = (values) => {
     const { id, created_at, ...updatePayload } = values;
+
+    if (fabricVisibilityColumn === "is_public") {
+      delete updatePayload.visibility;
+    } else if (fabricVisibilityColumn === "visibility") {
+      delete updatePayload.is_public;
+    } else {
+      delete updatePayload.is_public;
+      delete updatePayload.visibility;
+    }
+
     onFinish?.(updatePayload);
   };
 
@@ -293,6 +375,47 @@ export const FabricEdit = () => {
                         }}
                       />
                   </Grid>
+                  {fabricVisibilityColumn === "is_public" && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Fabric Visibility</Typography>
+                      <Controller
+                        control={control}
+                        name="is_public"
+                        render={({ field }) => (
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                checked={Boolean(field.value)}
+                                onChange={(_, checked) => field.onChange(checked)}
+                              />
+                            }
+                            label={field.value ? "Public" : "Private"}
+                          />
+                        )}
+                      />
+                    </Grid>
+                  )}
+                  {fabricVisibilityColumn === "visibility" && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Fabric Visibility</Typography>
+                      <Controller
+                        control={control}
+                        name="visibility"
+                        render={({ field }) => (
+                          <TextField
+                            select
+                            fullWidth
+                            margin="none"
+                            value={field.value || "public"}
+                            onChange={(e) => field.onChange(e.target.value)}
+                          >
+                            <MenuItem value="public">Public</MenuItem>
+                            <MenuItem value="private">Private</MenuItem>
+                          </TextField>
+                        )}
+                      />
+                    </Grid>
+                  )}
                   <Grid item xs={12} sm={6}>
                       <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Shipping Policy Template</Typography>
                       <TextField
@@ -333,19 +456,32 @@ export const FabricEdit = () => {
                   </Grid>
                   <Grid item xs={12} sm={6}>
                       <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Quick Actions</Typography>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        color="primary"
-                        startIcon={<PublishedWithChangesIcon />}
-                        onClick={handleOpenBulkApplyMenu}
-                        disabled={isBulkApplying}
-                        fullWidth
-                      >
-                        {isBulkApplying ? 'Applying...' : 'Apply to Products'}
-                      </Button>
+                      <Stack spacing={1}>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          color="primary"
+                          startIcon={<PublishedWithChangesIcon />}
+                          onClick={handleOpenBulkApplyMenu}
+                          disabled={isBulkApplying}
+                          fullWidth
+                        >
+                          {isBulkApplying ? 'Applying...' : 'Apply Shipping to Products'}
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          color="primary"
+                          startIcon={<PublicIcon />}
+                          onClick={handleOpenVisibilityMenu}
+                          disabled={isVisibilityApplying}
+                          fullWidth
+                        >
+                          {isVisibilityApplying ? "Updating..." : "Set Product Visibility"}
+                        </Button>
+                      </Stack>
                       <Alert severity="info" sx={{ mt: 1, fontSize: '0.75rem' }}>
-                        Apply this fabric's shipping & returns policy to its products.
+                        Apply shipping policy or set public/private visibility for products linked to this fabric.
                       </Alert>
                   </Grid>
                   <Grid item xs={12}>
@@ -409,6 +545,49 @@ export const FabricEdit = () => {
           <ListItemText
             primary="Apply to All Products"
             secondary="Updates every product in the database"
+          />
+        </MenuItem>
+      </Menu>
+      <Menu
+        anchorEl={visibilityMenuAnchor}
+        open={Boolean(visibilityMenuAnchor)}
+        onClose={handleCloseVisibilityMenu}
+      >
+        <MenuItem
+          onClick={() => handleBulkVisibilityApply(true, false)}
+          disabled={isVisibilityApplying}
+        >
+          <ListItemText
+            primary="Make This Fabric's Products Public"
+            secondary={`Sets "${watch("name")}" fabric products visible on website`}
+          />
+        </MenuItem>
+        <MenuItem
+          onClick={() => handleBulkVisibilityApply(false, false)}
+          disabled={isVisibilityApplying}
+        >
+          <ListItemText
+            primary="Make This Fabric's Products Private"
+            secondary={`Sets "${watch("name")}" fabric products hidden from website`}
+          />
+        </MenuItem>
+        <Divider />
+        <MenuItem
+          onClick={() => handleBulkVisibilityApply(true, true)}
+          disabled={isVisibilityApplying}
+        >
+          <ListItemText
+            primary="Make All Products Public"
+            secondary="Sets every product visible on website"
+          />
+        </MenuItem>
+        <MenuItem
+          onClick={() => handleBulkVisibilityApply(false, true)}
+          disabled={isVisibilityApplying}
+        >
+          <ListItemText
+            primary="Make All Products Private"
+            secondary="Sets every product hidden from website"
           />
         </MenuItem>
       </Menu>

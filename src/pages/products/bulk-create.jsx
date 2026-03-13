@@ -20,6 +20,7 @@ import {
   Divider,
   FormControlLabel,
   Checkbox,
+  Switch,
   Collapse,
   LinearProgress,
 } from "@mui/material";
@@ -42,6 +43,7 @@ export const ProductBulkCreate = () => {
   const [sharedDescription, setSharedDescription] = useState("");
   const [sharedCareInstructions, setSharedCareInstructions] = useState("");
   const [sharedShippingReturns, setSharedShippingReturns] = useState("");
+  const [sharedIsPublic, setSharedIsPublic] = useState(true);
 
   // Product rows
   const [products, setProducts] = useState([
@@ -211,6 +213,7 @@ export const ProductBulkCreate = () => {
           care_instructions: sharedCareInstructions || "",
           shipping_returns: sharedShippingReturns || "",
           price: sharedPrice ? parseFloat(sharedPrice) : null,
+          is_public: sharedIsPublic,
           images: product.images || [],
         };
 
@@ -347,6 +350,16 @@ export const ProductBulkCreate = () => {
               onChange={(e) => setSharedPrice(e.target.value)}
               helperText="Optional: Set same price for all products"
               inputProps={{ step: "0.01", min: "0" }}
+            />
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={sharedIsPublic}
+                  onChange={(e) => setSharedIsPublic(e.target.checked)}
+                />
+              }
+              label={sharedIsPublic ? "All new products: Public" : "All new products: Private"}
             />
 
             {/* Toggle for additional shared fields */}

@@ -1,5 +1,5 @@
 import { Create } from "@refinedev/mui";
-import { Box, TextField, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade, Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, Stack, InputAdornment, MenuItem, Chip, Alert } from "@mui/material";
+import { Box, TextField, Button, Typography, Paper, IconButton, Grid, Modal, Backdrop, Fade, Dialog, DialogTitle, DialogContent, List, ListItemButton, ListItemText, Stack, InputAdornment, MenuItem, Chip, Alert, FormControlLabel, Switch } from "@mui/material";
 import { useForm } from "@refinedev/react-hook-form";
 import { useWatch, Controller } from "react-hook-form";
 import { supabaseClient, supabaseAdminClient } from "../../supabase";
@@ -76,6 +76,7 @@ export const FabricCreate = () => {
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
   const [copyTargetField, setCopyTargetField] = useState(null);
   const [policies, setPolicies] = useState([]);
+  const [visibilityColumn, setVisibilityColumn] = useState(null); // "is_public" | "visibility" | null
 
   const { data: fabricsResponse } = useList({
     resource: "fabrics",
@@ -109,6 +110,31 @@ export const FabricCreate = () => {
     };
 
     fetchPolicies();
+  }, [setValue]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const detectVisibilityColumn = async () => {
+      const isPublicCheck = await supabaseAdminClient.from("fabrics").select("is_public").limit(1);
+      if (!isPublicCheck.error) {
+        if (isMounted) {
+          setVisibilityColumn("is_public");
+          setValue("is_public", true, { shouldDirty: false });
+        }
+        return;
+      }
+
+      const visibilityCheck = await supabaseAdminClient.from("fabrics").select("visibility").limit(1);
+      if (!visibilityCheck.error && isMounted) {
+        setVisibilityColumn("visibility");
+        setValue("visibility", "public", { shouldDirty: false });
+      }
+    };
+
+    detectVisibilityColumn();
+    return () => {
+      isMounted = false;
+    };
   }, [setValue]);
 
   const handleOpenCopyModal = (fieldName) => {
@@ -161,6 +187,16 @@ export const FabricCreate = () => {
   // FIX: Handle save manually to strip 'created_at' or 'id'
   const handleSave = (values) => {
     const { id, created_at, ...createPayload } = values;
+
+    if (visibilityColumn === "is_public") {
+      delete createPayload.visibility;
+    } else if (visibilityColumn === "visibility") {
+      delete createPayload.is_public;
+    } else {
+      delete createPayload.is_public;
+      delete createPayload.visibility;
+    }
+
     onFinish?.(createPayload);
   };
 
@@ -230,6 +266,47 @@ export const FabricCreate = () => {
                         }}
                       />
                   </Grid>
+                  {visibilityColumn === "is_public" && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Fabric Visibility</Typography>
+                      <Controller
+                        control={control}
+                        name="is_public"
+                        render={({ field }) => (
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                checked={Boolean(field.value)}
+                                onChange={(_, checked) => field.onChange(checked)}
+                              />
+                            }
+                            label={field.value ? "Public" : "Private"}
+                          />
+                        )}
+                      />
+                    </Grid>
+                  )}
+                  {visibilityColumn === "visibility" && (
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Fabric Visibility</Typography>
+                      <Controller
+                        control={control}
+                        name="visibility"
+                        render={({ field }) => (
+                          <TextField
+                            select
+                            fullWidth
+                            margin="none"
+                            value={field.value || "public"}
+                            onChange={(e) => field.onChange(e.target.value)}
+                          >
+                            <MenuItem value="public">Public</MenuItem>
+                            <MenuItem value="private">Private</MenuItem>
+                          </TextField>
+                        )}
+                      />
+                    </Grid>
+                  )}
                   <Grid item xs={12} sm={6}>
                       <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1 }}>Shipping Policy Template</Typography>
                       <TextField
