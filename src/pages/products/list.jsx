@@ -4,7 +4,7 @@ import {
 import { useDataGrid, List, CreateButton, DeleteButton } from "@refinedev/mui";
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
-import { Paper, Typography, Menu, MenuItem, IconButton, Stack, Box, FormControl, InputLabel, Select, Button, Chip } from "@mui/material";
+import { Paper, Typography, Menu, MenuItem, IconButton, Stack, Box, FormControl, InputLabel, Select, Button } from "@mui/material";
 import { MoreVert, Edit, Delete, Add, PlaylistAdd } from "@mui/icons-material";
 import { supabaseAdminClient } from "../../supabase";
 import { ProductReorderDialog } from "../../components/ProductReorderDialog";
@@ -13,12 +13,17 @@ import { useList, useNotification } from "@refinedev/core";
 export const ProductList = () => {
   const FABRIC_FILTER_STORAGE_KEY = "productFabricFilter";
   const ORDER_MODE_STORAGE_KEY = "productOrderMode";
+  const VIEW_MODE_STORAGE_KEY = "productViewMode";
   const DEFAULT_ORDER_MODE = "id_desc"; // "custom" | "name_asc" | "id_desc"
+  const DEFAULT_VIEW_MODE = "all"; // "all" | "new_products"
   
   const [searchParams, setSearchParams] = useSearchParams();
   const [hasCustomOrder, setHasCustomOrder] = useState(false);
   
   const { dataGridProps, setSorters, tableQueryResult } = useDataGrid({
+    meta: {
+      select: "id,name,price,fabric_type,is_public,sort_order,created_at",
+    },
     sorters: {
       initial: [
         {
@@ -69,6 +74,15 @@ export const ProductList = () => {
       return normalizeOrderMode(window.localStorage.getItem(ORDER_MODE_STORAGE_KEY));
     }
     return DEFAULT_ORDER_MODE;
+  });
+  const [viewMode, setViewMode] = useState(() => {
+    const paramValue = searchParams.get("view");
+    if (paramValue === "all" || paramValue === "new_products") return paramValue;
+    if (typeof window !== "undefined") {
+      const persisted = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+      if (persisted === "all" || persisted === "new_products") return persisted;
+    }
+    return DEFAULT_VIEW_MODE;
   });
   const [isReorderOpen, setIsReorderOpen] = useState(false);
   const [selectedFabric, setSelectedFabric] = useState(() => {
@@ -138,6 +152,18 @@ export const ProductList = () => {
     }
   }, [searchParams, orderMode]);
 
+  // Keep view mode in sync with URL changes (e.g., browser back/forward)
+  useEffect(() => {
+    const viewParam = searchParams.get("view");
+    const normalized = viewParam === "new_products" ? "new_products" : "all";
+    if (normalized !== viewMode) {
+      setViewMode(normalized);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, normalized);
+      }
+    }
+  }, [searchParams, viewMode]);
+
   // Apply sorting based on order mode and persist it - runs on mount and when order changes
   useEffect(() => {
     let effectiveMode = orderMode;
@@ -206,6 +232,21 @@ export const ProductList = () => {
       nextParams.set("fabric", value);
     } else {
       nextParams.delete("fabric");
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const handleViewModeChange = (e) => {
+    const value = e.target.value === "new_products" ? "new_products" : "all";
+    setViewMode(value);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, value);
+    }
+    const nextParams = new URLSearchParams(searchParams);
+    if (value === "new_products") {
+      nextParams.set("view", value);
+    } else {
+      nextParams.delete("view");
     }
     setSearchParams(nextParams, { replace: true });
   };
@@ -284,14 +325,31 @@ export const ProductList = () => {
         minWidth: 170,
         align: "center",
         headerAlign: "center",
-        renderCell: (params) => (
-          <Chip
-            size="small"
-            label={params.value === false ? "Private" : "Public"}
-            color={params.value === false ? "default" : "success"}
-            variant={params.value === false ? "outlined" : "filled"}
-          />
-        ),
+        sortable: false,
+        renderCell: (params) => {
+          const id = params.row?.id;
+          const isPublic = params.value !== false;
+          const isUpdating = updatingVisibilityId === id;
+
+          return (
+            <Box onClick={(e) => e.stopPropagation()}>
+              <FormControl size="small" sx={{ minWidth: 125 }}>
+                <Select
+                  value={isPublic ? "public" : "private"}
+                  disabled={isUpdating}
+                  onChange={(event) => {
+                    const nextIsPublic = event.target.value === "public";
+                    if (nextIsPublic === isPublic) return;
+                    handleSetVisibility(id, nextIsPublic);
+                  }}
+                >
+                  <MenuItem value="public">Public</MenuItem>
+                  <MenuItem value="private">Private</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          );
+        },
       },
       {
         field: "actions",
@@ -374,6 +432,24 @@ export const ProductList = () => {
     [navigate, anchorEl, open, currentRowId, updatingVisibilityId, tableQueryResult, openNotification]
   );
 
+  const yesterdayRows = useMemo(() => {
+    const rows = exactFilteredRows ?? [];
+    const now = new Date();
+    const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    return rows.filter((row) => {
+      if (!row?.created_at) return false;
+      const createdAt = new Date(row.created_at);
+      return createdAt >= yesterdayStart && createdAt < todayStart;
+    });
+  }, [exactFilteredRows]);
+
+  const displayedRows = useMemo(() => {
+    if (viewMode === "new_products") return yesterdayRows;
+    return exactFilteredRows;
+  }, [viewMode, yesterdayRows, exactFilteredRows]);
+
   return (
     <List
         headerButtons={
@@ -409,6 +485,18 @@ export const ProductList = () => {
                 </Select>
               </FormControl>
             )}
+            <FormControl size="small" sx={{ minWidth: 220 }}>
+              <InputLabel id="view-mode-label">View Mode</InputLabel>
+              <Select
+                labelId="view-mode-label"
+                value={viewMode}
+                label="View Mode"
+                onChange={handleViewModeChange}
+              >
+                <MenuItem value="all">All Products</MenuItem>
+                <MenuItem value="new_products">New Products (Yesterday)</MenuItem>
+              </Select>
+            </FormControl>
             {hasCustomOrder && orderMode === "custom" && (
               <Button variant="contained" color="primary" onClick={() => setIsReorderOpen(true)}>
                 Reorder
@@ -442,7 +530,7 @@ export const ProductList = () => {
             <DataGrid
               {...dataGridProps}
               columns={columns}
-              rows={exactFilteredRows}
+              rows={displayedRows}
               sortModel={sortModel}
               sortingMode="server"
               rowHeight={72} 

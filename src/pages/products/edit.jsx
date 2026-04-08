@@ -14,7 +14,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save'; 
 import ImageSearchIcon from '@mui/icons-material/ImageSearch';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import { useList, useResource } from "@refinedev/core"; 
@@ -126,6 +126,7 @@ export const ProductEdit = () => {
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
   const [copyTargetField, setCopyTargetField] = useState(null); 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false); // <-- Added state for new modal
+  const lastHydratedProductIdRef = useRef(null);
 
   const { data: productsData } = useList({ 
     resource: "products",
@@ -161,24 +162,30 @@ export const ProductEdit = () => {
   const isFormLoading = queryResult?.isLoading; 
 
   useEffect(() => {
-    if (productData && !isDirty) { 
-        const defaultValues = { 
-            ...productData, 
-            name: productData.name || "",
-            short_description: productData.short_description || "",
-            description: productData.description || "",
-            care_instructions: productData.care_instructions || "",
-            shipping_returns: productData.shipping_returns || "",
-            price: productData.price ?? null, 
-            fabric_type: productData.fabric_type || "",
-            print_id: productData.print_id ?? null,
-            print_type: productData.print_type || "",
-            is_public: productData.is_public ?? true,
-            images: productData.images || [] 
-        };
-        reset(defaultValues); 
-    }
-  }, [productData, reset, isDirty]); 
+    if (!productData?.id) return;
+
+    // Hydrate form exactly once per loaded product id.
+    // Prevents late query/state updates from wiping user-triggered setValue changes.
+    if (lastHydratedProductIdRef.current === productData.id) return;
+
+    const defaultValues = {
+      ...productData,
+      name: productData.name || "",
+      short_description: productData.short_description || "",
+      description: productData.description || "",
+      care_instructions: productData.care_instructions || "",
+      shipping_returns: productData.shipping_returns || "",
+      price: productData.price ?? null,
+      fabric_type: productData.fabric_type || "",
+      print_id: productData.print_id ?? null,
+      print_type: productData.print_type || "",
+      is_public: productData.is_public ?? true,
+      images: productData.images || [],
+    };
+
+    reset(defaultValues);
+    lastHydratedProductIdRef.current = productData.id;
+  }, [productData, reset]); 
 
   // Field array for images
   const { fields, append, remove, move, replace } = useFieldArray({ control, name: "images" });
@@ -234,7 +241,7 @@ export const ProductEdit = () => {
         .limit(1);
       query = selector.key === "id" ? query.eq("id", selector.value) : query.eq("name", selector.value);
 
-      const { data, error } = await query.single();
+      const { data, error } = await query.maybeSingle();
       if (error || !data) return;
 
       const currentDescription = watch("description");
@@ -263,10 +270,13 @@ export const ProductEdit = () => {
     try {
       const options = autocompleteProps.options || [];
       const currentName = watch("fabric_type");
-      const selected = options.find(o => o.name === currentName);
-      if (!selected) return;
+      if (!currentName) return;
 
-      const selector = selected?.id != null ? { key: "id", value: selected.id } : { key: "name", value: selected?.name };
+      // Prefer id when we can resolve the selected option; otherwise fallback to exact name from form value.
+      const selected = options.find((o) => o.name === currentName);
+      const selector = selected?.id != null
+        ? { key: "id", value: selected.id }
+        : { key: "name", value: currentName };
       if (!selector.value) return;
 
       let query = supabaseAdminClient
@@ -275,7 +285,7 @@ export const ProductEdit = () => {
         .limit(1);
       query = selector.key === "id" ? query.eq("id", selector.value) : query.eq("name", selector.value);
 
-      const { data, error } = await query.single();
+      const { data, error } = await query.maybeSingle();
       if (error || !data) return;
 
       if (data.description != null) {
@@ -292,7 +302,9 @@ export const ProductEdit = () => {
       if (typeof data.default_price === "number") {
         setValue("price", data.default_price, { shouldDirty: true });
       }
-    } catch {/* noop */}
+    } catch (error) {
+      console.error("Failed to apply fabric defaults:", error);
+    }
   };
 
   const handleImageUpload = async (event) => {
@@ -329,6 +341,14 @@ export const ProductEdit = () => {
   const onDragEnd = (result) => {
     if (!result.destination) return;
     move(result.source.index, result.destination.index);
+  };
+
+  const getImageUrlAtIndex = (index, fieldItem) => {
+    const watched = watchedImages?.[index];
+    if (typeof watched === "string" && watched.length > 0) return watched;
+    if (typeof fieldItem === "string" && fieldItem.length > 0) return fieldItem;
+    if (typeof fieldItem?.value === "string" && fieldItem.value.length > 0) return fieldItem.value;
+    return "";
   };
   
   return (
@@ -544,6 +564,9 @@ export const ProductEdit = () => {
                         {fields && fields.map((field, index) => (
                             <Draggable key={field.id} draggableId={field.id} index={index}>
                             {(provided) => (
+                                (() => {
+                                const imageUrl = getImageUrlAtIndex(index, field);
+                                return (
                                 <Box
                                 ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}
                                 sx={(theme) => ({
@@ -554,7 +577,7 @@ export const ProductEdit = () => {
                                 >
                                 <Box 
                                     className="preview-overlay" 
-                                    onClick={() => handleOpenPreview(watchedImages?.[index])} 
+                                    onClick={() => handleOpenPreview(imageUrl)} 
                                     sx={{ 
                                     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
                                     backgroundColor: 'rgba(0,0,0,0.3)', 
@@ -569,11 +592,13 @@ export const ProductEdit = () => {
                                     <ZoomInIcon />
                                 </Box>
                                 {index === 0 && ( <Typography sx={(theme) => ({ position: 'absolute', top: 0, left: 0, background: theme.palette.primary.main, color: theme.palette.primary.contrastText, padding: '2px 6px', fontSize: '0.7rem', borderBottomRightRadius: '4px', zIndex: 1 })}>Main</Typography> )}
-                                <img src={watchedImages?.[index]} alt={`product-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <img src={imageUrl} alt={`product-${index}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 <IconButton size="small" onClick={() => remove(index)} sx={{ position: 'absolute', top: 2, right: 2, backgroundColor: 'rgba(255, 255, 255, 0.8)', zIndex: 1, '&:hover': { backgroundColor: 'rgba(255, 255, 255, 1)'} }}>
                                     <DeleteIcon fontSize="small" />
                                 </IconButton>
                                 </Box>
+                                );
+                                })()
                             )}
                             </Draggable>
                         ))}
