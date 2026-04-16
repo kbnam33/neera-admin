@@ -4,7 +4,7 @@ import {
 import { useDataGrid, List, CreateButton, DeleteButton } from "@refinedev/mui";
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
-import { Paper, Typography, Menu, MenuItem, IconButton, Stack, Box, FormControl, InputLabel, Select, Button } from "@mui/material";
+import { Paper, Typography, Menu, MenuItem, IconButton, Stack, Box, FormControl, InputLabel, Select, Button, Switch, FormControlLabel } from "@mui/material";
 import { MoreVert, Edit, Delete, Add, PlaylistAdd } from "@mui/icons-material";
 import { supabaseAdminClient } from "../../supabase";
 import { ProductReorderDialog } from "../../components/ProductReorderDialog";
@@ -333,20 +333,25 @@ export const ProductList = () => {
 
           return (
             <Box onClick={(e) => e.stopPropagation()}>
-              <FormControl size="small" sx={{ minWidth: 125 }}>
-                <Select
-                  value={isPublic ? "public" : "private"}
-                  disabled={isUpdating}
-                  onChange={(event) => {
-                    const nextIsPublic = event.target.value === "public";
-                    if (nextIsPublic === isPublic) return;
-                    handleSetVisibility(id, nextIsPublic);
-                  }}
-                >
-                  <MenuItem value="public">Public</MenuItem>
-                  <MenuItem value="private">Private</MenuItem>
-                </Select>
-              </FormControl>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={isPublic}
+                    disabled={isUpdating}
+                    onChange={(_, checked) => {
+                      if (checked === isPublic) return;
+                      handleSetVisibility(id, checked);
+                    }}
+                  />
+                }
+                label={isPublic ? "Public" : "Private"}
+                sx={{
+                  "& .MuiFormControlLabel-label": {
+                    fontSize: "0.75rem",
+                    color: isPublic ? "success.main" : "text.secondary",
+                  },
+                }}
+              />
             </Box>
           );
         },
