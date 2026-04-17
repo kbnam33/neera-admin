@@ -162,42 +162,23 @@ export const ProductEdit = () => {
   const isFormLoading = queryResult?.isLoading; 
 
   useEffect(() => {
-    if (!productData?.id) return;
+    console.log("productData.images →", productData?.images);
+  }, [productData]);
 
-    // Hydrate form exactly once per loaded product id.
-    // Prevents late query/state updates from wiping user-triggered setValue changes.
+useEffect(() => {
+    if (isFormLoading) return;
+    if (!productData?.id) return;
+    if (productData.images === undefined) return;
     if (lastHydratedProductIdRef.current === productData.id) return;
 
-    const defaultValues = {
-      ...productData,
-      name: productData.name || "",
-      short_description: productData.short_description || "",
-      description: productData.description || "",
-      care_instructions: productData.care_instructions || "",
-      shipping_returns: productData.shipping_returns || "",
-      price: productData.price ?? null,
-      fabric_type: productData.fabric_type || "",
-      print_id: productData.print_id ?? null,
-      print_type: productData.print_type || "",
-      is_public: productData.is_public ?? true,
-      images: productData.images || [],
-    };
-
-    reset(defaultValues);
+    reset({ ...productData, images: productData.images || [] });
     lastHydratedProductIdRef.current = productData.id;
-  }, [productData, reset]); 
+  }, [productData, isFormLoading, reset]);
 
   // Field array for images
-  const { fields, append, remove, move, replace } = useFieldArray({ control, name: "images" });
+  const { fields, append, remove, move } = useFieldArray({ control, name: "images" });
   const watchedImages = useWatch({ control, name: "images" });
   const watchedFabricType = useWatch({ control, name: "fabric_type" }); 
-
-  // Keep field array in sync with loaded product images
-  useEffect(() => {
-    if (Array.isArray(productData?.images)) {
-      replace(productData.images);
-    }
-  }, [productData?.images, replace]);
 
   // Auto-update shipping returns when fabric changes
   useEffect(() => {
